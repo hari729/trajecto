@@ -23,12 +23,44 @@ URDF_PATH = {
     },
 }
 
+# waypoints = np.array(
+#     [
+#         [0.0, -1.57, 1.57, -1.57, -1.57, 0.0],  # a common UR5 "up" home pose
+#         [0.5, -1.3, 1.2, -1.5, -1.4, 0.0],  # pan right, elbow relaxes slightly
+#         [1.0, -1.0, 1.0, -1.6, -1.3, 0.3],  # continued sweep, mild wrist rotation
+#         [1.57, -1.57, 1.57, -1.57, -1.57, 0.0],  # mirrors start, panned 90°
+#     ]
+# )
+
 waypoints = np.array(
     [
-        [0.0, -1.57, 1.57, -1.57, -1.57, 0.0],  # a common UR5 "up" home pose
-        [0.5, -1.3, 1.2, -1.5, -1.4, 0.0],  # pan right, elbow relaxes slightly
-        [1.0, -1.0, 1.0, -1.6, -1.3, 0.3],  # continued sweep, mild wrist rotation
-        [1.57, -1.57, 1.57, -1.57, -1.57, 0.0],  # mirrors start, panned 90°
+        [0.0, -1.57, 1.57, -1.57, -1.57, 0.0],  # UR5 "up" home pose
+        [0.6, -1.9, 1.1, -0.8, -1.1, 0.9],  # pan right, shoulder drops, wrist rolls in
+        [
+            1.2,
+            -1.2,
+            2.0,
+            -2.2,
+            -0.6,
+            -0.7,
+        ],  # elbow extends further, wrist_1 sweeps wide
+        [
+            1.8,
+            -0.8,
+            0.9,
+            -1.9,
+            -1.8,
+            1.6,
+        ],  # continued pan, shoulder lifts, wrist_2 tilts hard
+        [
+            2.4,
+            -1.5,
+            1.6,
+            -1.0,
+            -1.3,
+            -1.2,
+        ],  # reversing wrist_3 direction, mid-range elbow
+        [3.14, -1.57, 1.57, -1.57, -1.57, 0.0],  # mirrors home, panned 180°
     ]
 )
 
@@ -49,9 +81,10 @@ pipe = Pipeline(
     waypoints=waypoints,
     trajectory_generator=bspline_trajecto,
     joint_limits=joint_limits,
+    time_limit=50,
     trajectory_extras=trajectory_extras,
-    n_var=3,
-    var_bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
+    n_var=5,
+    var_bounds=np.array([[0.5, 1.0, 1.0, 1, 1], [20.0, 20.0, 20.0, 20.0, 20.0]]),
     algorithm=MO_BWR(pop_size=100),
     results_dir=Path(__file__).parent,
     seeds=[1, 2],
@@ -67,9 +100,10 @@ pipe = Pipeline(
 # )
 # pipe.simulate_trajectory("knee", show=True)
 # pipe.shutdown_simulation()
-# pipe.optimize()
 
-trajectory_name = "fastest"
+pipe.optimize()
+
+trajectory_name = "knee"
 
 pipe.run_simulation(
     controllers_yaml_path=controllers_yaml_path,

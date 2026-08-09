@@ -13,7 +13,6 @@ from pymoo.parallelization.joblib import JoblibParallelization
 
 
 from launch import LaunchService
-from ament_index_python.packages import get_package_share_directory
 
 
 class Pipeline:
@@ -24,6 +23,7 @@ class Pipeline:
         waypoints,
         joint_limits,
         trajectory_generator,
+        time_limit,
         n_var,
         var_bounds,
         trajectory_extras,
@@ -47,6 +47,7 @@ class Pipeline:
         self.seeds = seeds
         self.n_gen = n_gen
         self.n_threads = n_threads
+        self.time_limit = time_limit
 
         # initialize the thread pool and create the runner
         runner = JoblibParallelization(n_jobs=self.n_threads, backend="loky")
@@ -60,6 +61,7 @@ class Pipeline:
             trajectory_extras=trajectory_extras,
             joint_limits=joint_limits,
             elementwise_runner=runner,
+            time_limit=time_limit,
         )
         self.problem = problem
 
@@ -69,6 +71,7 @@ class Pipeline:
         self.final_front, _ = optimize_trajectory(
             urdf_arg=self.urdf_arg,
             trajectory_function=self.trajectory_generator,
+            time_limit=self.time_limit,
             n_var=self.n_var,
             bounds=self.var_bounds,
             trajectory_extras=self.trajectory_extras,

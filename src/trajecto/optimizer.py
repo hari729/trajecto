@@ -40,6 +40,7 @@ algorithm = NSGA3(pop_size=92, ref_dirs=ref_dirs)
 def optimize_trajectory(
     urdf_arg,
     trajectory_function,
+    time_limit,
     n_var,
     bounds,
     trajectory_extras,
@@ -56,6 +57,7 @@ def optimize_trajectory(
     problem = TrajectoryProblem(
         urdf_arg=urdf_arg,
         trajectory_function=trajectory_function,
+        time_limit=time_limit,
         n_var=n_var,
         bounds=bounds,
         trajectory_extras=trajectory_extras,
