@@ -91,24 +91,24 @@ def save_trajectory_results(final_front, output_dir, problem):
     X = final_front.get("X")
     G = final_front.get("G")
     results_dict = {"X": X.tolist(), "F": F.tolist(), "G": G.tolist()}
-    dict_to_csv(results_dict, output_dir, "trajectory_optimization_results")
+    dict_to_csv(results_dict, output_dir, "trajectory-optimization-results")
 
     fastest_traj_idx = np.argmin(F[:, 0])
     fastest_trajectory = problem.generate_trajectory(X[fastest_traj_idx])
-    with open(f"{output_dir}/fastest_trajectory.json", "w") as f:
+    with open(f"{output_dir}/fastest-trajectory.json", "w") as f:
         json.dump(fastest_trajectory, f, indent=2, default=lambda a: a.tolist())
 
     efficient_traj_idx = np.argmin(F[:, 1])
     efficient_trajectory = problem.generate_trajectory(X[efficient_traj_idx])
-    with open(f"{output_dir}/efficient_trajectory.json", "w") as f:
+    with open(f"{output_dir}/efficient-trajectory.json", "w") as f:
         json.dump(efficient_trajectory, f, indent=2, default=lambda a: a.tolist())
 
     smoothest_traj_idx = np.argmin(F[:, 2])
     smoothest_trajectory = problem.generate_trajectory(X[smoothest_traj_idx])
-    with open(f"{output_dir}/smoothest_trajectory.json", "w") as f:
+    with open(f"{output_dir}/smoothest-trajectory.json", "w") as f:
         json.dump(smoothest_trajectory, f, indent=2, default=lambda a: a.tolist())
 
     knee_idx = find_knee_point(F)
     knee_trajectory = problem.generate_trajectory(X[knee_idx])
-    with open(f"{output_dir}/knee_trajectory.json", "w") as f:
+    with open(f"{output_dir}/knee-trajectory.json", "w") as f:
         json.dump(knee_trajectory, f, indent=2, default=lambda a: a.tolist())

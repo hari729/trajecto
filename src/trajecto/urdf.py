@@ -76,3 +76,19 @@ def load_urdf_xml(source: str, xacro_args: dict | None = None) -> str:
         return xacro.process_file(str(path), mappings=xacro_args or {}).toxml()
 
     return path.read_text()
+
+
+def set_initial_joint_positions(
+    urdf_xml: str, joint_names: list[str], start_q: list[float]
+) -> str:
+    root = ET.fromstring(urdf_xml)
+    for jn, q0 in zip(joint_names, start_q):
+        joint_el = root.find(f".//ros2_control//joint[@name='{jn}']")
+        if joint_el is None:
+            raise ValueError(f"joint '{jn}' not found in <ros2_control> block")
+        pos_iface = joint_el.find("state_interface[@name='position']")
+        if pos_iface is None:
+            raise ValueError(f"joint '{jn}' has no position state_interface")
+        param = ET.SubElement(pos_iface, "param", {"name": "initial_value"})
+        param.text = str(q0)
+    return ET.tostring(root, encoding="unicode")

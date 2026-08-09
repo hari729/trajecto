@@ -13,6 +13,7 @@ import time  # For sleep/delay
 from rclpy.action import ActionClient
 from control_msgs.action import FollowJointTrajectory
 from geometry_msgs.msg import Wrench
+from rclpy.parameter import Parameter
 
 
 def generate_trajectory_msg(trajectory_file_path):
@@ -70,34 +71,13 @@ class publish_trajectory(Node):
 
 
 class record_joint_states(Node):
-    def __init__(self, output_file_path):
-        super().__init__("record_joint_states")
-        self.get_logger().info("record_joint_states node has been started")
-        self.output_file_path = output_file_path
-        self.joint_states = []
-        self.subscription = self.create_subscription(
-            JointState, "/joint_states", self.joint_state_callback, 10
-        )
-
-    def joint_state_callback(self, msg):
-        self.joint_states.append(
-            {
-                "time": msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
-                "position": msg.position,
-                "velocity": msg.velocity,
-                "effort": msg.effort,
-                "name": msg.name,
-            }
-        )
-
-    def save_joint_states(self):
-        with open(self.output_file_path, "w") as file:
-            json.dump(self.joint_states, file, indent=2, default=lambda a: a.tolist())
-
-
-class record_joint_states_new(Node):
     def __init__(self, output_file_path, joint_names, robot_name="robot"):
-        super().__init__("record_joint_states")
+        super().__init__(
+            "record_joint_states",
+            parameter_overrides=[
+                Parameter("use_sim_time", Parameter.Type.BOOL, True),
+            ],
+        )
         self.output_file_path = output_file_path
         self.joint_names = joint_names
         self.joint_states = []
@@ -134,6 +114,29 @@ class record_joint_states_new(Node):
         )
 
     def save_readings(self):
+        # readings = {
+        #     "js_time": [],
+        #     "ft_time": [],
+        #     "q": [],
+        #     "dq": [],
+        #     "js_tau": [],
+        #     "ft_tau": [],
+        #     "joint_names": self.joint_names,
+        # }
+        # joint_idx = [
+        #     self.joint_states[0]["name"].index(janme) for janme in self.joint_names
+        # ]
+        # for js in self.joint_states:
+        #     readings["js_time"].append(js["time"])
+        #     readings["q"].append([js["position"][jp] for jp in joint_idx])
+        #     readings["dq"].append([js["velocity"][jv] for jv in joint_idx])
+        #     readings["js_tau"].append([js["effort"][je] for je in joint_idx])
+        #
+        # for r in range(len(self.ft_readings[self.joint_names[0]]) - 1):
+        #     readings["ft_time"].append(self.ft_readings[self.joint_names[0]][r]["time"])
+        #     readings["ft_tau"].append(
+        #         [self.ft_readings[jn][r]["torque"] for jn in self.joint_names]
+        #     )
         with open(self.output_file_path[0], "w") as file:
             json.dump(self.joint_states, file, indent=2, default=lambda a: a.tolist())
 
