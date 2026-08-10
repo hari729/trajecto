@@ -4,11 +4,12 @@ import os
 import threading
 import time
 
-from trajecto.optimizer import optimize_trajectory, save_trajectory_results
+from trajecto.optimizer import merge_pareto_fronts, save_trajectory_results
 from trajecto.problem import TrajectoryProblem
 from trajecto.launch_sim import build_robot_launch
 from trajecto.urdf import set_initial_joint_positions
 
+from pymoo.optimize import minimize
 from pymoo.parallelization.joblib import JoblibParallelization
 
 
@@ -68,19 +69,19 @@ class Pipeline:
     def optimize(self):
 
         print("Running multi-objective optimization...")
-        self.final_front, _ = optimize_trajectory(
-            urdf_arg=self.urdf_arg,
-            trajectory_function=self.trajectory_generator,
-            time_limit=self.time_limit,
-            n_var=self.n_var,
-            bounds=self.var_bounds,
-            trajectory_extras=self.trajectory_extras,
-            joint_limits=self.joint_limits,
-            seeds=self.seeds,
-            pymoo_algorithm=self.algorithm,
-            n_gen=self.n_gen,
-            n_threads=self.n_threads,
-        )
+        results = []
+        for seed in self.seeds:
+            # execute the optimization
+            res = minimize(
+                self.problem,
+                self.algorithm,
+                termination=("n_gen", self.n_gen),
+                seed=seed,
+            )
+            results.append(res)
+            print("ExecTime:", res.exec_time)
+
+        self.final_front = merge_pareto_fronts(results)
 
         F = self.final_front.get("F")
         X = self.final_front.get("X")
