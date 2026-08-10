@@ -1,3 +1,5 @@
+import enum
+from os.path import join
 from trajectory_msgs.msg import (
     JointTrajectory,
     JointTrajectoryPoint,
@@ -24,13 +26,14 @@ def generate_trajectory_msg(trajectory_file_path):
     if trajectory["joint_names"] is not None:
         trajectory_msg.joint_names = trajectory["joint_names"]
         # print(trajectory_msg.joint_names)
-    for i in range(len(trajectory["t"])):
+    for i in range(len(trajectory["time"])):
         tmsg_point = JointTrajectoryPoint()
-        tmsg_point.positions = trajectory["q"][i]
-        tmsg_point.velocities = trajectory["dq"][i]
-        tmsg_point.accelerations = trajectory["ddq"][i]
+        tmsg_point.positions = trajectory["position"][i]
+        tmsg_point.velocities = trajectory["velocity"][i]
+        tmsg_point.accelerations = trajectory["acceleration"][i]
         tmsg_point.time_from_start = Duration(
-            sec=int(trajectory["t"][i]), nanosec=int((trajectory["t"][i] % 1) * 1e9)
+            sec=int(trajectory["time"][i]),
+            nanosec=int((trajectory["time"][i] % 1) * 1e9),
         )
         trajectory_msg.points.append(tmsg_point)
 
@@ -80,8 +83,11 @@ class record_joint_states(Node):
         )
         self.output_file_path = output_file_path
         self.joint_names = joint_names
-        self.joint_states = []
-        self.ft_readings = {jn: [] for jn in joint_names}
+        self.joint_states = {
+            jn: {"position": [], "velocity": [], "torque": []} for jn in joint_names
+        }
+        self.joint_states["time"] = []
+        self.ft_readings = {jn: {"time": [], "torque": []} for jn in joint_names}
 
         self.subscription = self.create_subscription(
             JointState, "/joint_states", self.joint_state_callback, 10
@@ -95,50 +101,30 @@ class record_joint_states(Node):
             )
 
     def joint_state_callback(self, msg):
-        self.joint_states.append(
-            {
-                "time": msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
-                "position": msg.position,
-                "velocity": msg.velocity,
-                "effort": msg.effort,
-                "name": msg.name,
-            }
+        self.joint_states["time"].append(
+            msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         )
+        for idx, name in enumerate(msg.name):
+            self.joint_states[name]["position"].append(msg.position[idx])
+            self.joint_states[name]["velocity"].append(msg.velocity[idx])
+            self.joint_states[name]["torque"].append(msg.effort[idx])
 
     def ft_callback(self, msg, joint_name):
-        self.ft_readings[joint_name].append(
-            {
-                "time": self.get_clock().now().nanoseconds * 1e-9,
-                "torque": msg.torque.z,  # confirm this is the axis aligned with the joint's rotation axis
-            }
+        self.ft_readings[joint_name]["time"].append(
+            self.get_clock().now().nanoseconds * 1e-9
         )
+        self.ft_readings[joint_name]["torque"].append(
+            msg.torque.z
+        )  # confirm this is the axis aligned with the joint's rotation axis
 
     def save_readings(self):
-        # readings = {
-        #     "js_time": [],
-        #     "ft_time": [],
-        #     "q": [],
-        #     "dq": [],
-        #     "js_tau": [],
-        #     "ft_tau": [],
-        #     "joint_names": self.joint_names,
-        # }
-        # joint_idx = [
-        #     self.joint_states[0]["name"].index(janme) for janme in self.joint_names
-        # ]
-        # for js in self.joint_states:
-        #     readings["js_time"].append(js["time"])
-        #     readings["q"].append([js["position"][jp] for jp in joint_idx])
-        #     readings["dq"].append([js["velocity"][jv] for jv in joint_idx])
-        #     readings["js_tau"].append([js["effort"][je] for je in joint_idx])
-        #
-        # for r in range(len(self.ft_readings[self.joint_names[0]]) - 1):
-        #     readings["ft_time"].append(self.ft_readings[self.joint_names[0]][r]["time"])
-        #     readings["ft_tau"].append(
-        #         [self.ft_readings[jn][r]["torque"] for jn in self.joint_names]
-        #     )
         with open(self.output_file_path[0], "w") as file:
-            json.dump(self.joint_states, file, indent=2, default=lambda a: a.tolist())
+            json.dump(
+                self.joint_states,
+                file,
+                indent=2,
+                default=lambda a: a.tolist(),
+            )
 
         with open(self.output_file_path[1], "w") as file:
             json.dump(self.ft_readings, file, indent=2, default=lambda a: a.tolist())

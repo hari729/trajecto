@@ -70,10 +70,10 @@ trajectory_extras = {
 }
 
 joint_limits = {
-    "dq": np.full(6, 2 * np.pi),
-    "ddq": np.full(6, 10.0),
-    "dddq": np.full(6, 50.0),
-    "tau": np.full(6, 100.0),
+    "velocity": np.full(6, 2 * np.pi),
+    "acceleration": np.full(6, 10.0),
+    "jerk": np.full(6, 50.0),
+    "torque": np.full(6, 100.0),
 }
 pipe = Pipeline(
     robot_name="ur",
@@ -101,7 +101,7 @@ pipe = Pipeline(
 # pipe.simulate_trajectory("knee", show=True)
 # pipe.shutdown_simulation()
 
-pipe.optimize()
+# pipe.optimize()
 
 trajectory_name = "knee"
 
@@ -112,11 +112,11 @@ pipe.run_simulation(
     trajectory_name=trajectory_name,
 )
 
-from trajecto.plots import plot_rnea_on_measured
+from trajecto.plots import plot_trajectory_comparison
 
-plot_rnea_on_measured(
+plot_trajectory_comparison(
     str(pipe.results_dir / f"{trajectory_name}-trajectory.json"),
     str(pipe.simul_results_dir / f"{trajectory_name}-joint-states.json"),
     str(pipe.simul_results_dir / f"{trajectory_name}-ft-sensor.json"),
-    rmodel=pipe.problem.robotmodel,
+    str(pipe.simul_results_dir / f"{trajectory_name}-plots"),
 )

@@ -1,85 +1,65 @@
+from loares.experiments.plots import multi_line_plot
+from matplotlib.backends.backend_pdf import PdfPages
+import os
+
+
 def plot_trajectory_comparison(
     trajectory_path: str,
     joint_states_path: str,
     ft_readings_path: str,
-    output_path: str = "comparison.png",
+    output_path: str,
 ):
     import json
     import numpy as np
-    import matplotlib.pyplot as plt
 
     with open(trajectory_path) as f:
-        kt = json.load(f)
+        gt = json.load(f)
     with open(joint_states_path) as f:
         js = json.load(f)
+    with open(ft_readings_path) as f:
+        ft = json.load(f)
 
-    joint_names = kt["joint_names"]
-    n_joints = len(joint_names)
+    gt = {
+        key: np.array(val) if key != "joint_names" else val for key, val in gt.items()
+    }
 
-    t_cmd = np.array(kt["t"])
-    q_cmd = np.array(kt["q"])
-    dq_cmd = np.array(kt["dq"])
-    tau_cmd = np.array(kt["tau"])
+    js = {
+        key: {ikey: np.array(ival) for ikey, ival in val.items()}
+        if key != "time"
+        else np.array(val)
+        for key, val in js.items()
+    }
 
-    t_meas = np.array([s["time"] for s in js])
-    t_meas = t_meas - t_meas[0]
+    referecnce_time = js["time"][0]
+    js["time"] -= referecnce_time
 
-    # each recorded sample carries its own name order — align to
-    # trajectory_path's joint_names per sample rather than assuming
-    # a fixed order across the whole recording
-    q_meas = np.array(
-        [[s["position"][s["name"].index(jn)] for jn in joint_names] for s in js]
-    )
-    dq_meas = np.array(
-        [[s["velocity"][s["name"].index(jn)] for jn in joint_names] for s in js]
-    )
-    tau_meas = np.array(
-        [[s["effort"][s["name"].index(jn)] for jn in joint_names] for s in js]
-    )
+    ft = {
+        key: {
+            ikey: np.array(ival) if ikey != "time" else np.array(ival) - referecnce_time
+            for ikey, ival in val.items()
+        }
+        for key, val in ft.items()
+    }
 
-    signals = [
-        ("position [rad]", q_cmd, q_meas, "commanded"),
-        ("velocity [rad/s]", dq_cmd, dq_meas, "commanded"),
-        ("effort [N·m]", tau_cmd, tau_meas, "RNEA (theoretical)"),
-    ]
+    os.makedirs(output_path, exist_ok=True)
 
-    fig, axes = plt.subplots(n_joints, 3, figsize=(15, 3 * n_joints))
-    for row, jname in enumerate(joint_names):
-        for col, (ylabel, cmd, meas, cmd_label) in enumerate(signals):
-            ax = axes[row, col]
-            ax.plot(
-                t_cmd, cmd[:, row], label=cmd_label, color="tab:blue", linewidth=1.5
-            )
-            ax.plot(
-                t_meas,
-                meas[:, row],
-                label="measured",
-                color="tab:orange",
-                linewidth=1.2,
-            )
-            ax.set_ylabel(ylabel)
-            if row == 0:
-                ax.set_title(ylabel.split(" [")[0].capitalize())
-            if row == n_joints - 1:
-                ax.set_xlabel("time [s]")
-            if row == 0 and col == 0:
-                ax.legend(fontsize=8)
-            ax.grid(alpha=0.3)
-        axes[row, 0].annotate(
-            jname,
-            xy=(-0.35, 0.5),
-            xycoords="axes fraction",
-            fontsize=10,
-            fontweight="bold",
-            ha="right",
-            va="center",
-        )
-
-    plt.tight_layout()
-    plt.show()
-    # # plt.savefig(output_path, dpi=130)
-    # # plt.close(fig)
-    # return output_path
+    for i, joint in enumerate(gt["joint_names"]):
+        with PdfPages(f"{output_path}/{joint}.pdf") as pdf:
+            for key in ["position", "velocity", "torque"]:
+                data = {
+                    "ydata": [
+                        gt[key][:, i],
+                        js[joint][key] if key != "torque" else ft[joint][key],
+                    ],
+                    "xdata": [
+                        gt["time"],
+                        js["time"] if key != "torque" else ft[joint]["time"],
+                    ],
+                    "xlabel": "Time (s)",
+                    "ylabel": f"{key}",
+                    "legend": ["Planned Trajectory", "Simulated Trajectory"],
+                }
+                multi_line_plot(data, pdf)
 
 
 def plot_rnea_on_measured(
@@ -161,13 +141,13 @@ def plot_rnea_on_measured(
             color="tab:blue",
             linewidth=1.5,
         )
-        ax.plot(
-            t_meas,
-            tau_rnea_on_measured[:, row],
-            label="RNEA (measured q, dq)",
-            color="tab:green",
-            linewidth=1.5,
-        )
+        # ax.plot(
+        #     t_meas,
+        #     tau_rnea_on_measured[:, row],
+        #     label="RNEA (measured q, dq)",
+        #     color="tab:green",
+        #     linewidth=1.5,
+        # )
         ax.plot(
             t_meas,
             effort_meas[:, row],

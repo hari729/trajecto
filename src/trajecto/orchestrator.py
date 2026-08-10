@@ -185,7 +185,7 @@ class Pipeline:
             self.results_dir / f"{trajectory_name}-trajectory.json"
         ) as f:  # confirm actual filename
             traj_data = json.load(f)
-        start_q = traj_data["q"][0]
+        start_q = traj_data["position"][0]
 
         launch_urdf_xml = set_initial_joint_positions(
             self.problem.robotmodel.urdf_xml,

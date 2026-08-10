@@ -58,37 +58,37 @@ class TrajectoryProblem(ElementwiseProblem):
         trajectory = self.trajectory_function(x, self.trajectory_extras)
         torques = []
         pin_data = self.pin_model.createData()
-        for i in range(len(trajectory["t"])):
+        for i in range(len(trajectory["time"])):
             tau = pin.rnea(
                 self.pin_model,
                 pin_data,
-                trajectory["q"][i],
-                trajectory["dq"][i],
-                trajectory["ddq"][i],
+                trajectory["position"][i],
+                trajectory["velocity"][i],
+                trajectory["acceleration"][i],
             )
             torques.append(tau)
 
-        duration = trajectory["t"][-1] - trajectory["t"][0]
-        max_v = np.max(np.abs(trajectory["dq"]), axis=0)
-        max_a = np.max(np.abs(trajectory["ddq"]), axis=0)
-        max_j = np.max(np.abs(trajectory["dddq"]), axis=0)
+        duration = trajectory["time"][-1] - trajectory["time"][0]
+        max_v = np.max(np.abs(trajectory["velocity"]), axis=0)
+        max_a = np.max(np.abs(trajectory["acceleration"]), axis=0)
+        max_j = np.max(np.abs(trajectory["jerk"]), axis=0)
         max_torque = np.max(np.abs(torques), axis=0)
 
         time_constr = duration - self.time_limit
-        v_constr = max_v - self.joint_limits["dq"]
-        a_constr = max_a - self.joint_limits["ddq"]
-        j_constr = max_j - self.joint_limits["dddq"]
-        torque_constr = max_torque - self.joint_limits["tau"]
+        v_constr = max_v - self.joint_limits["velocity"]
+        a_constr = max_a - self.joint_limits["acceleration"]
+        j_constr = max_j - self.joint_limits["jerk"]
+        torque_constr = max_torque - self.joint_limits["torque"]
 
         power = (
-            torques * trajectory["dq"]
+            torques * trajectory["velocity"]
         )  # instantaneous power per joint, shape (T, n_joints)
         energy_per_joint = np.trapezoid(
-            np.abs(power), trajectory["t"], axis=0
+            np.abs(power), trajectory["time"], axis=0
         )  # ∫|τ·ω| dt per joint
         E = np.sum(energy_per_joint)  # total energy across all joints
 
-        int_jer = np.trapezoid(trajectory["dddq"] ** 2, trajectory["t"], axis=0)
+        int_jer = np.trapezoid(trajectory["jerk"] ** 2, trajectory["time"], axis=0)
         SJ = np.sum(np.sqrt(int_jer / duration))
 
         out["F"] = [duration, E, SJ]
@@ -99,17 +99,17 @@ class TrajectoryProblem(ElementwiseProblem):
     def generate_trajectory(self, x):
         trajectory = self.trajectory_function(x, self.trajectory_extras)
         trajectory["joint_names"] = self.joint_names
-        trajectory["tau"] = []
+        trajectory["torque"] = []
         pin_data = self.pin_model.createData()
-        for i in range(len(trajectory["t"])):
+        for i in range(len(trajectory["time"])):
             tau = pin.rnea(
                 self.pin_model,
                 pin_data,
-                trajectory["q"][i],
-                trajectory["dq"][i],
-                trajectory["ddq"][i],
+                trajectory["position"][i],
+                trajectory["velocity"][i],
+                trajectory["acceleration"][i],
             )
-            trajectory["tau"].append(tau)
+            trajectory["torque"].append(tau)
         return trajectory
 
 
@@ -128,11 +128,11 @@ def bspline_trajectory(t, num_joints, k, waypoints, bconditions, steps=500):
         dddq_out.append(spline(t_fine, nu=3))
 
     trajectory = {}
-    trajectory["t"] = t_fine
-    trajectory["q"] = np.array(q_out).T
-    trajectory["dq"] = np.array(dq_out).T
-    trajectory["ddq"] = np.array(ddq_out).T
-    trajectory["dddq"] = np.array(dddq_out).T
+    trajectory["time"] = t_fine
+    trajectory["position"] = np.array(q_out).T
+    trajectory["velocity"] = np.array(dq_out).T
+    trajectory["acceleration"] = np.array(ddq_out).T
+    trajectory["jerk"] = np.array(dddq_out).T
 
     return trajectory
 
