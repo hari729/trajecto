@@ -12,3 +12,5 @@ pyrightconfig.json
 
 .pytest_cache/
 .opencode/
+
+examples/ur/
