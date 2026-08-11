@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 
 from trajecto.orchestrator import Pipeline
-from trajecto.problem import bspline_trajecto
+from trajecto.samples import bspline_trajectory
 
 from loares.algorithms.bxr import MO_BWR
 
@@ -22,15 +22,6 @@ URDF_PATH = {
         "simulation_controllers": controllers_yaml_path,
     },
 }
-
-# waypoints = np.array(
-#     [
-#         [0.0, -1.57, 1.57, -1.57, -1.57, 0.0],  # a common UR5 "up" home pose
-#         [0.5, -1.3, 1.2, -1.5, -1.4, 0.0],  # pan right, elbow relaxes slightly
-#         [1.0, -1.0, 1.0, -1.6, -1.3, 0.3],  # continued sweep, mild wrist rotation
-#         [1.57, -1.57, 1.57, -1.57, -1.57, 0.0],  # mirrors start, panned 90°
-#     ]
-# )
 
 waypoints = np.array(
     [
@@ -64,9 +55,21 @@ waypoints = np.array(
     ]
 )
 
+bconditions = [
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+]
+
 trajectory_extras = {
-    "waypoints_cont": waypoints,
-    "end_v": np.zeros(6),
+    "waypoints": waypoints,
+    "bconditions": bconditions,
+    "num_joints": 6,
+    "k": 6,
+    "steps": 500,
 }
 
 joint_limits = {
@@ -75,11 +78,12 @@ joint_limits = {
     "jerk": np.full(6, 50.0),
     "torque": np.full(6, 100.0),
 }
+
 pipe = Pipeline(
     robot_name="ur",
     urdf_arg=URDF_PATH,
     waypoints=waypoints,
-    trajectory_generator=bspline_trajecto,
+    trajectory_generator=bspline_trajectory,
     joint_limits=joint_limits,
     time_limit=50,
     trajectory_extras=trajectory_extras,
@@ -92,16 +96,7 @@ pipe = Pipeline(
     n_threads=8,
 )
 
-# pipe.optimize()
-# pipe.launch_simulation(
-#     controllers_yaml_path=controllers_yaml_path,
-#     world_name="torque_sensor",
-#     world_file=str(Path(__file__).parent / "torque_sensor.sdf"),
-# )
-# pipe.simulate_trajectory("knee", show=True)
-# pipe.shutdown_simulation()
-
-# pipe.optimize()
+pipe.optimize()
 
 trajectory_name = "knee"
 

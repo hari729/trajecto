@@ -55,7 +55,7 @@ class TrajectoryProblem(ElementwiseProblem):
         )
 
     def _evaluate(self, x, out, *args, **kwargs):
-        trajectory = self.trajectory_function(x, self.trajectory_extras)
+        trajectory = self.trajectory_function(x, **self.trajectory_extras)
         torques = []
         pin_data = self.pin_model.createData()
         for i in range(len(trajectory["time"])):
@@ -97,7 +97,7 @@ class TrajectoryProblem(ElementwiseProblem):
         )
 
     def generate_trajectory(self, x):
-        trajectory = self.trajectory_function(x, self.trajectory_extras)
+        trajectory = self.trajectory_function(x, **self.trajectory_extras)
         trajectory["joint_names"] = self.joint_names
         trajectory["torque"] = []
         pin_data = self.pin_model.createData()
@@ -111,58 +111,3 @@ class TrajectoryProblem(ElementwiseProblem):
             )
             trajectory["torque"].append(tau)
         return trajectory
-
-
-def bspline_trajectory(t, num_joints, k, waypoints, bconditions, steps=500):
-    from scipy.interpolate import make_interp_spline
-
-    t_fine = np.linspace(t.min(), t.max(), steps)
-    q_out, dq_out, ddq_out, dddq_out = [], [], [], []
-
-    for i in range(num_joints):
-        spline = make_interp_spline(t, waypoints[:, i], k=k, bc_type=bconditions[i])
-
-        q_out.append(spline(t_fine))
-        dq_out.append(spline(t_fine, nu=1))
-        ddq_out.append(spline(t_fine, nu=2))
-        dddq_out.append(spline(t_fine, nu=3))
-
-    trajectory = {}
-    trajectory["time"] = t_fine
-    trajectory["position"] = np.array(q_out).T
-    trajectory["velocity"] = np.array(dq_out).T
-    trajectory["acceleration"] = np.array(ddq_out).T
-    trajectory["jerk"] = np.array(dddq_out).T
-
-    return trajectory
-
-
-def bspline_trajecto(x, trajectory_extras):
-
-    end_derivs = [
-        ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-        (
-            [(1, 0.0), (2, 0.0), (3, 0.0)],
-            [(1, trajectory_extras["end_v"][1]), (2, 0.0)],
-        ),
-        (
-            [(1, 0.0), (2, 0.0), (3, 0.0)],
-            [(1, trajectory_extras["end_v"][2]), (2, 0.0)],
-        ),
-        (
-            [(1, 0.0), (2, 0.0), (3, 0.0)],
-            [(1, trajectory_extras["end_v"][3]), (2, 0.0)],
-        ),
-        ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-        ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-    ]
-
-    btrajectory = bspline_trajectory(
-        np.concatenate(([0.0], np.cumsum(x))),
-        6,
-        6,
-        trajectory_extras["waypoints_cont"],
-        end_derivs,
-    )
-
-    return btrajectory
