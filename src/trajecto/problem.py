@@ -3,6 +3,7 @@ import numpy as np
 
 import pinocchio as pin
 from pymoo.core.problem import ElementwiseProblem
+from pymoo.parallelization.joblib import JoblibParallelization
 
 from trajecto.urdf import load_urdf_xml, inject_ft_sensors
 
@@ -31,6 +32,7 @@ class TrajectoryProblem(ElementwiseProblem):
         trajectory_extras,
         joint_limits,
         time_limit=10.0,
+        n_threads=4,
         **kwargs,
     ) -> None:
         self.trajectory_function = trajectory_function
@@ -45,12 +47,16 @@ class TrajectoryProblem(ElementwiseProblem):
         )  # time, velocity, acceleration, jerk, torque constraints
         self.joint_names = self.robotmodel.joint_names
         self.time_limit = time_limit
+        self.n_threads = n_threads
         super().__init__(
             n_obj=3,
             n_var=n_var,
             n_ieq_constr=n_ieq_constr,
             xl=bounds[0, :],
             xu=bounds[1, :],
+            elementwise_runner=JoblibParallelization(
+                n_jobs=self.n_threads, backend="loky"
+            ),
             **kwargs,
         )
 
