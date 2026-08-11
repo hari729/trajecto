@@ -3,10 +3,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from trajecto.problem import TrajectoryProblem, bspline_trajecto
-
+from trajecto.problem import TrajectoryProblem
+from trajecto.samples import bspline_trajectory
 
 URDF_PATH = Path(__file__).parent / "ur5.urdf"
+
 WAYPOINTS = np.array(
     [
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -16,43 +17,57 @@ WAYPOINTS = np.array(
     ]
 )
 
+BCONDITIONS = [
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
+]
+
+JOINT_LIMITS = {
+    "velocity": np.full(6, 2 * np.pi),
+    "acceleration": np.full(6, 10.0),
+    "jerk": np.full(6, 50.0),
+    "torque": np.full(6, 100.0),
+}
+
 
 @pytest.fixture
 def trajectory_extras():
     return {
-        "waypoints_cont": WAYPOINTS,
-        "end_v": np.zeros(6),
+        "waypoints": WAYPOINTS,
+        "bconditions": BCONDITIONS,
+        "num_joints": 6,
+        "k": 6,
+        "steps": 500,
     }
 
 
 @pytest.fixture
 def problem(trajectory_extras):
     return TrajectoryProblem(
-        trajectory_function=bspline_trajecto,
-        urdf_path=str(URDF_PATH),
+        trajectory_function=bspline_trajectory,
+        urdf_arg={"source": str(URDF_PATH)},
         n_var=3,
         bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
         trajectory_extras=trajectory_extras,
-        joint_limits={
-            "dq": np.full(6, 2 * np.pi),
-            "ddq": np.full(6, 10.0),
-            "dddq": np.full(6, 50.0),
-            "tau": np.full(6, 100.0),
-        },
+        joint_limits=JOINT_LIMITS,
         time_limit=10.0,
     )
 
 
 class TestTrajectoryProblem:
     def test_bspline_returns_valid_time_and_joint_array_shapes(self, trajectory_extras):
-        trajectory = bspline_trajecto(np.array([3.3, 3.3, 3.3]), trajectory_extras)
+        trajectory = bspline_trajectory(np.array([3.3, 3.3, 3.3]), **trajectory_extras)
 
-        assert trajectory["t"].shape == (500,)
-        assert trajectory["t"][0] == pytest.approx(0.0)
-        assert trajectory["t"][-1] == pytest.approx(9.9)
-        assert np.all(np.diff(trajectory["t"]) > 0.0)
+        assert trajectory["time"].shape == (500,)
+        assert trajectory["time"][0] == pytest.approx(0.0)
+        assert trajectory["time"][-1] == pytest.approx(9.9)
+        assert np.all(np.diff(trajectory["time"]) > 0.0)
 
-        for key in ("q", "dq", "ddq", "dddq"):
+        for key in ("position", "velocity", "acceleration", "jerk"):
             assert trajectory[key].shape == (500, 6)
             assert np.all(np.isfinite(trajectory[key]))
 
@@ -60,6 +75,25 @@ class TestTrajectoryProblem:
         assert problem.n_obj == 3
         assert problem.n_ieq_constr == 4 * problem.pin_model.nv + 1
         assert problem.n_ieq_constr == 25
+
+    def test_joint_names_follow_urdf_declaration_order(self, problem):
+        assert problem.joint_names == [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ]
+        assert len(problem.joint_names) == problem.n_joints
+
+    def test_trajectory_columns_follow_model_joint_order(
+        self, problem, trajectory_extras
+    ):
+        trajectory = bspline_trajectory(np.array([3.3, 3.3, 3.3]), **trajectory_extras)
+
+        np.testing.assert_allclose(trajectory["position"][0], WAYPOINTS[0], atol=1e-9)
+        np.testing.assert_allclose(trajectory["position"][-1], WAYPOINTS[-1], atol=1e-9)
 
     def test_single_evaluation_returns_expected_shapes_and_duration(self, problem):
         f, g = problem.evaluate(
@@ -83,3 +117,11 @@ class TestTrajectoryProblem:
         assert np.all(np.isfinite(g))
         np.testing.assert_allclose(f[:, 0], [9.9, 9.5])
         np.testing.assert_allclose(g[:, 0], [-0.1, -0.5])
+
+    def test_generate_trajectory_stamps_joint_names_and_torque(self, problem):
+        trajectory = problem.generate_trajectory(np.array([3.3, 3.3, 3.3]))
+
+        assert trajectory["joint_names"] == problem.joint_names
+        assert trajectory["time"].shape == (500,)
+        assert np.asarray(trajectory["torque"]).shape == (500, 6)
+        assert np.all(np.isfinite(trajectory["torque"]))
