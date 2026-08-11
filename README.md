@@ -97,11 +97,11 @@ Planned vs. simulated trajectories from the `examples/example.py` UR5 run
 
 | `shoulder_pan_joint` | `shoulder_lift_joint` | `elbow_joint` |
 | --- | --- | --- |
-| ![](examples/ur/torque_sensor/knee-plots/shoulder_pan_joint.png) | ![](examples/ur/torque_sensor/knee-plots/shoulder_lift_joint.png) | ![](examples/ur/torque_sensor/knee-plots/elbow_joint.png) |
+| ![](examples/shoulder_pan_joint.png) | ![](examples/shoulder_lift_joint.png) | ![](examples/elbow_joint.png) |
 
 | `wrist_1_joint` | `wrist_2_joint` | `wrist_3_joint` |
 | --- | --- | --- |
-| ![](examples/ur/torque_sensor/knee-plots/wrist_1_joint.png) | ![](examples/ur/torque_sensor/knee-plots/wrist_2_joint.png) | ![](examples/ur/torque_sensor/knee-plots/wrist_3_joint.png) |
+| ![](examples/wrist_1_joint.png) | ![](examples/wrist_2_joint.png) | ![](examples/wrist_3_joint.png) |
 
 ## Tests
 
