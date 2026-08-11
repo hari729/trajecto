@@ -89,6 +89,20 @@ print(problem.joint_names)
 `tests/test_problem.py` asserts the UR5 joint order and that trajectory
 columns follow the waypoint/model order.
 
+## Example results
+
+Planned vs. simulated trajectories from the `examples/example.py` UR5 run
+(selected Pareto solutions, data in
+[`examples/ur/torque_sensor/`](examples/ur/torque_sensor/)):
+
+| `shoulder_pan_joint` | `shoulder_lift_joint` | `elbow_joint` |
+| --- | --- | --- |
+| ![](examples/ur/torque_sensor/knee-plots/shoulder_pan_joint.png) | ![](examples/ur/torque_sensor/knee-plots/shoulder_lift_joint.png) | ![](examples/ur/torque_sensor/knee-plots/elbow_joint.png) |
+
+| `wrist_1_joint` | `wrist_2_joint` | `wrist_3_joint` |
+| --- | --- | --- |
+| ![](examples/ur/torque_sensor/knee-plots/wrist_1_joint.png) | ![](examples/ur/torque_sensor/knee-plots/wrist_2_joint.png) | ![](examples/ur/torque_sensor/knee-plots/wrist_3_joint.png) |
+
 ## Tests
 
 ```bash
