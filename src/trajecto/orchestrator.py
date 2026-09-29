@@ -170,7 +170,8 @@ class Pipeline:
 
         rclpy.init()
         node = publish_trajectory(
-            self.results_dir / f"{trajectory_name}-trajectory.json"
+            self.results_dir / f"{trajectory_name}-trajectory.json",
+            controller_name=self.robot.controller_name,
         )
         recorder = record_joint_states(
             [

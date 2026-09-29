@@ -82,6 +82,13 @@ def set_initial_joint_positions(
     urdf_xml: str, joint_names: list[str], start_q: list[float]
 ) -> str:
     root = ET.fromstring(urdf_xml)
+    if root.find(".//ros2_control") is None:
+        raise ValueError(
+            "URDF has no <ros2_control> block, so initial joint positions "
+            "cannot be injected. Add a ros2_control system with a position "
+            "state_interface per joint, or extend the launch to pass initial "
+            "positions to the spawner."
+        )
     for jn, q0 in zip(joint_names, start_q):
         joint_el = root.find(f".//ros2_control//joint[@name='{jn}']")
         if joint_el is None:

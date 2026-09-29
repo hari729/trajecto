@@ -84,6 +84,11 @@ class TestSetInitialJointPositions:
         with pytest.raises(ValueError, match="no_such_joint"):
             set_initial_joint_positions(xml, ["no_such_joint"], [0.0])
 
+    def test_missing_ros2_control_raises_clear_error(self):
+        xml = '<robot name="r"><link name="a"/></robot>'
+        with pytest.raises(ValueError, match="ros2_control"):
+            set_initial_joint_positions(xml, ["j1"], [0.0])
+
 
 class TestParseJointLimits:
     def test_derives_velocity_and_effort(self):

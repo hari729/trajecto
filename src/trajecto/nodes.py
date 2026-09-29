@@ -31,7 +31,10 @@ def generate_trajectory_msg(trajectory_file_path):
     return trajectory_msg
 
 
-def publish_trajectory(trajectory_file_path):
+def publish_trajectory(
+    trajectory_file_path,
+    controller_name="joint_trajectory_controller",
+):
     import rclpy  # noqa: F401  (fail early with a clear ImportError)
     from rclpy.node import Node
     from rclpy.action import ActionClient
@@ -46,7 +49,7 @@ def publish_trajectory(trajectory_file_path):
             self._client = ActionClient(
                 self,
                 FollowJointTrajectory,
-                "joint_trajectory_controller/follow_joint_trajectory",
+                f"{controller_name}/follow_joint_trajectory",
             )
 
         def send_trajectory(self, executor):
