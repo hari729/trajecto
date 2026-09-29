@@ -125,3 +125,24 @@ class TestTrajectoryProblem:
         assert trajectory["time"].shape == (500,)
         assert np.asarray(trajectory["torque"]).shape == (500, 6)
         assert np.all(np.isfinite(trajectory["torque"]))
+
+    def test_zero_duration_trajectory_is_infeasible_and_finite_free(self, problem):
+        def static_trajectory(x, **kwargs):
+            t = np.zeros(10)
+            return {
+                "time": t,
+                "position": np.zeros((10, 6)),
+                "velocity": np.zeros((10, 6)),
+                "acceleration": np.zeros((10, 6)),
+                "jerk": np.zeros((10, 6)),
+            }
+
+        problem.trajectory_function = static_trajectory
+        out = {}
+        problem._evaluate(np.array([1.0, 1.0, 1.0]), out)
+
+        assert out["F"][0] == pytest.approx(0.0)
+        assert np.isinf(out["F"][1])
+        assert np.isinf(out["F"][2])
+        assert out["G"][0] == pytest.approx(-problem.time_limit)
+        assert len(out["G"]) == 25

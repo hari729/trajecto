@@ -89,6 +89,8 @@ def set_initial_joint_positions(
         pos_iface = joint_el.find("state_interface[@name='position']")
         if pos_iface is None:
             raise ValueError(f"joint '{jn}' has no position state_interface")
-        param = ET.SubElement(pos_iface, "param", {"name": "initial_value"})
+        param = pos_iface.find("param[@name='initial_value']")
+        if param is None:
+            param = ET.SubElement(pos_iface, "param", {"name": "initial_value"})
         param.text = str(q0)
     return ET.tostring(root, encoding="unicode")

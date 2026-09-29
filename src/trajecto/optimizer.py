@@ -15,7 +15,10 @@ def merge_pareto_fronts(results):
     if not populations:
         return Population.empty()
 
-    merged = Population.merge(*populations)
+    if len(populations) == 1:
+        merged = populations[0]
+    else:
+        merged = Population.merge(*populations)
     F = merged.get("F")
     rank0 = NonDominatedSorting().do(F, only_non_dominated_front=True)
 
