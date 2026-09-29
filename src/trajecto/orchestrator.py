@@ -21,7 +21,9 @@ class Pipeline:
     trajectory_generator / trajectory_extras / n_var / var_bounds: the
         trajectory model and its optimization variables (unchanged contract).
     joint_limits: optional overrides merged over the limits derived from the
-        robot URDF (Phase 6); pass explicit per-joint arrays until then.
+        robot URDF (velocity/torque). If None, robot.joint_limits is used.
+        Acceleration and jerk have no URDF equivalent and must be supplied via
+        one of these.
     """
 
     def __init__(
@@ -33,8 +35,8 @@ class Pipeline:
         trajectory_extras,
         algorithm,
         results_dir,
-        joint_limits,
         time_limit,
+        joint_limits=None,
         world=None,
         seeds=(1,),
         n_gen=100,
@@ -53,6 +55,8 @@ class Pipeline:
         self.robot_name = robot.name
         self.results_dir = Path(results_dir) / self.robot_name
         os.makedirs(self.results_dir, exist_ok=True)
+        if joint_limits is None:
+            joint_limits = robot.joint_limits
         self.joint_limits = joint_limits
         self.trajectory_generator = trajectory_generator
         self.var_bounds = var_bounds
@@ -175,6 +179,7 @@ class Pipeline:
             ],
             joint_names=self.problem.robotmodel.joint_names,
             robot_name=self.robot_name,
+            joint_axes=self.problem.robotmodel.joint_axes,
         )
 
         executor = MultiThreadedExecutor()

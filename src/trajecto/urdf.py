@@ -94,3 +94,54 @@ def set_initial_joint_positions(
             param = ET.SubElement(pos_iface, "param", {"name": "initial_value"})
         param.text = str(q0)
     return ET.tostring(root, encoding="unicode")
+
+
+def _movable_joints(root: ET.Element) -> dict[str, ET.Element]:
+    """Map movable-joint name -> its <joint> element, in URDF declaration order."""
+    return {
+        j.get("name"): j
+        for j in root.findall("joint")
+        if j.get("type") in ("revolute", "continuous", "prismatic")
+    }
+
+
+def parse_joint_limits(urdf_xml: str, joint_names: list[str]) -> dict:
+    """Derive per-joint velocity/effort limits from the URDF <limit> elements.
+
+    Returns {"velocity": array, "torque": array} in the given joint_names
+    order. Raises if a requested joint is missing or has a non-positive
+    (unspecified) limit, since a zero limit would make every trajectory
+    infeasible.
+    """
+    joints = _movable_joints(ET.fromstring(urdf_xml))
+    velocity, torque = [], []
+    for jn in joint_names:
+        el = joints.get(jn)
+        lim = el.find("limit") if el is not None else None
+        v = float(lim.get("velocity")) if lim is not None else 0.0
+        e = float(lim.get("effort")) if lim is not None else 0.0
+        if v <= 0:
+            raise ValueError(
+                f"joint '{jn}' has no positive <limit velocity=...> in the URDF; "
+                "supply a velocity limit via RobotConfig.joint_limits"
+            )
+        if e <= 0:
+            raise ValueError(
+                f"joint '{jn}' has no positive <limit effort=...> in the URDF; "
+                "supply a torque limit via RobotConfig.joint_limits"
+            )
+        velocity.append(v)
+        torque.append(e)
+    return {"velocity": velocity, "torque": torque}
+
+
+def parse_joint_axes(urdf_xml: str, joint_names: list[str]) -> dict[str, list[float]]:
+    """Return each joint's rotation axis as [x, y, z] (URDF default is 1 0 0)."""
+    joints = _movable_joints(ET.fromstring(urdf_xml))
+    axes = {}
+    for jn in joint_names:
+        el = joints.get(jn)
+        axis = el.find("axis") if el is not None else None
+        xyz = axis.get("xyz").split() if axis is not None else ["1", "0", "0"]
+        axes[jn] = [float(c) for c in xyz]
+    return axes

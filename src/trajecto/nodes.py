@@ -72,12 +72,15 @@ def publish_trajectory(trajectory_file_path):
     return _PublishTrajectory(trajectory_file_path)
 
 
-def record_joint_states(output_file_path, joint_names, robot_name="robot"):
+def record_joint_states(output_file_path, joint_names, robot_name="robot", joint_axes=None):
     import rclpy  # noqa: F401  (fail early with a clear ImportError)
     from rclpy.node import Node
     from rclpy.parameter import Parameter
     from sensor_msgs.msg import JointState
     from geometry_msgs.msg import Wrench
+
+    # default to the joint-local z axis when no axes are supplied
+    joint_axes = joint_axes or {jn: [0.0, 0.0, 1.0] for jn in joint_names}
 
     class _RecordJointStates(Node):
         def __init__(self, output_file_path, joint_names, robot_name):
@@ -89,6 +92,7 @@ def record_joint_states(output_file_path, joint_names, robot_name="robot"):
             )
             self.output_file_path = output_file_path
             self.joint_names = joint_names
+            self.joint_axes = joint_axes
             self.joint_states = {
                 jn: {"position": [], "velocity": [], "torque": []}
                 for jn in joint_names
@@ -120,8 +124,13 @@ def record_joint_states(output_file_path, joint_names, robot_name="robot"):
             self.ft_readings[joint_name]["time"].append(
                 self.get_clock().now().nanoseconds * 1e-9
             )
-            # torque.z is the axis aligned with the joint's rotation axis
-            self.ft_readings[joint_name]["torque"].append(msg.torque.z)
+            # project the measured torque onto the joint's own rotation axis
+            # (read from the URDF <axis>, not assumed to be z)
+            ax = self.joint_axes[joint_name]
+            t = msg.torque
+            self.ft_readings[joint_name]["torque"].append(
+                ax[0] * t.x + ax[1] * t.y + ax[2] * t.z
+            )
 
         def save_readings(self):
             with open(self.output_file_path[0], "w") as file:

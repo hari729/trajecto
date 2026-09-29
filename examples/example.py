@@ -80,11 +80,11 @@ trajectory_extras = {
     "steps": 500,
 }
 
+# velocity and torque limits are read from the URDF; only acceleration and
+# jerk (not defined in URDF) must be supplied.
 joint_limits = {
-    "velocity": np.full(6, 2 * np.pi),
     "acceleration": np.full(6, 10.0),
     "jerk": np.full(6, 50.0),
-    "torque": np.full(6, 100.0),
 }
 
 pipe = Pipeline(

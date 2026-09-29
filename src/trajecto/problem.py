@@ -4,7 +4,12 @@ import pinocchio as pin
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.parallelization.joblib import JoblibParallelization
 
-from trajecto.urdf import load_urdf_xml, inject_ft_sensors
+from trajecto.urdf import (
+    load_urdf_xml,
+    inject_ft_sensors,
+    parse_joint_limits,
+    parse_joint_axes,
+)
 
 
 class RobotModel:
@@ -17,6 +22,9 @@ class RobotModel:
             if self.model.joints[i].nq == 1 and self.model.joints[i].nv == 1
         ]
         self.urdf_xml = inject_ft_sensors(raw_urdf_xml, self.joint_names)
+        # derive what the URDF provides: per-joint limits and rotation axes
+        self.derived_limits = parse_joint_limits(raw_urdf_xml, self.joint_names)
+        self.joint_axes = parse_joint_axes(raw_urdf_xml, self.joint_names)
 
 
 class TrajectoryProblem(ElementwiseProblem):
@@ -27,7 +35,7 @@ class TrajectoryProblem(ElementwiseProblem):
         n_var,
         bounds,
         trajectory_extras,
-        joint_limits,
+        joint_limits=None,
         time_limit=10.0,
         n_threads=4,
         **kwargs,
@@ -36,9 +44,9 @@ class TrajectoryProblem(ElementwiseProblem):
         self.trajectory_extras = trajectory_extras
         self.urdf_arg = urdf_arg
         self.robotmodel = RobotModel(**urdf_arg)
-        self.joint_limits = joint_limits
         self.pin_model = self.robotmodel.model
         self.n_joints = self.pin_model.nv
+        self.joint_limits = self._resolve_joint_limits(joint_limits)
         n_ieq_constr = (
             4 * self.n_joints + 1
         )  # time, velocity, acceleration, jerk, torque constraints
@@ -57,6 +65,42 @@ class TrajectoryProblem(ElementwiseProblem):
             **kwargs,
         )
 
+    def _resolve_joint_limits(self, joint_limits):
+        """Merge user overrides over the limits derived from the URDF.
+
+        Velocity and torque default to the URDF <limit> values; acceleration
+        and jerk have no URDF equivalent and must be supplied. Every key must
+        be a per-joint array in URDF joint order.
+        """
+        derived = self.robotmodel.derived_limits
+        overrides = dict(joint_limits or {})
+        resolved = {}
+        for key in ("velocity", "acceleration", "jerk", "torque"):
+            if key in overrides:
+                value = np.asarray(overrides[key], dtype=float)
+            elif key in derived:
+                value = np.asarray(derived[key], dtype=float)
+            else:
+                raise ValueError(
+                    f"joint_limits is missing {key!r} and it cannot be derived "
+                    "from the URDF; supply it (e.g. via RobotConfig.joint_limits)"
+                )
+            if value.shape != (self.n_joints,):
+                raise ValueError(
+                    f"joint_limits[{key!r}] must have shape ({self.n_joints},) "
+                    f"(one value per movable joint in URDF order), got {value.shape}"
+                )
+            resolved[key] = value
+        return resolved
+
+    def _check_joint_count(self, trajectory):
+        n = trajectory["position"].shape[1]
+        if n != self.n_joints:
+            raise ValueError(
+                f"trajectory has {n} joints but the model has {self.n_joints} "
+                f"({self.joint_names}); check waypoints/trajectory column order"
+            )
+
     def _compute_torques(self, trajectory):
         pin_data = self.pin_model.createData()
         return np.array(
@@ -74,6 +118,7 @@ class TrajectoryProblem(ElementwiseProblem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         trajectory = self.trajectory_function(x, **self.trajectory_extras)
+        self._check_joint_count(trajectory)
         torques = self._compute_torques(trajectory)
 
         duration = trajectory["time"][-1] - trajectory["time"][0]
@@ -112,6 +157,7 @@ class TrajectoryProblem(ElementwiseProblem):
 
     def generate_trajectory(self, x):
         trajectory = self.trajectory_function(x, **self.trajectory_extras)
+        self._check_joint_count(trajectory)
         trajectory["joint_names"] = self.joint_names
         trajectory["torque"] = self._compute_torques(trajectory)
         return trajectory

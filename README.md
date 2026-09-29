@@ -138,6 +138,10 @@ order in which the movable joints are declared in the URDF:
 - the per-joint entries of `joint_limits` (`velocity`, `acceleration`,
   `jerk`, `torque`).
 
+`velocity` and `torque` limits are read automatically from the URDF `<limit>`
+elements; `acceleration` and `jerk` are not defined in URDF and must be
+supplied (via `joint_limits`). Supplying a key overrides the derived value.
+
 Pinocchio's `buildModelFromXML` extracts joints deterministically in URDF
 declaration order, and `trajecto` does **not** reorder anything: column `i` of
 every trajectory array is assumed to correspond one-to-one to

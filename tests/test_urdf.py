@@ -1,9 +1,16 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from trajecto.urdf import inject_ft_sensors, load_urdf_xml, set_initial_joint_positions
+from trajecto.urdf import (
+    inject_ft_sensors,
+    load_urdf_xml,
+    parse_joint_axes,
+    parse_joint_limits,
+    set_initial_joint_positions,
+)
 
 URDF_PATH = Path(__file__).parent / "ur5.urdf"
 
@@ -76,3 +83,56 @@ class TestSetInitialJointPositions:
         xml = load_urdf_xml(str(URDF_PATH))
         with pytest.raises(ValueError, match="no_such_joint"):
             set_initial_joint_positions(xml, ["no_such_joint"], [0.0])
+
+
+class TestParseJointLimits:
+    def test_derives_velocity_and_effort(self):
+        xml = load_urdf_xml(str(URDF_PATH))
+        limits = parse_joint_limits(xml, JOINT_NAMES)
+        np.testing.assert_allclose(limits["velocity"], [np.pi] * 6)
+        np.testing.assert_allclose(limits["torque"], [150.0, 150.0, 150.0, 28.0, 28.0, 28.0])
+
+    def test_missing_or_zero_limit_raises(self):
+        xml = (
+            '<robot name="r">'
+            '<link name="a"/><link name="b"/>'
+            '<joint name="j1" type="revolute"><parent link="a"/><child link="b"/>'
+            '<limit lower="-1" upper="1" effort="0" velocity="0"/></joint>'
+            "</robot>"
+        )
+        with pytest.raises(ValueError, match="velocity"):
+            parse_joint_limits(xml, ["j1"])
+
+    def test_unknown_joint_raises(self):
+        xml = load_urdf_xml(str(URDF_PATH))
+        with pytest.raises(ValueError):
+            parse_joint_limits(xml, ["no_such_joint"])
+
+
+class TestParseJointAxes:
+    def test_ur5_all_z_axis(self):
+        xml = load_urdf_xml(str(URDF_PATH))
+        axes = parse_joint_axes(xml, JOINT_NAMES)
+        for jn in JOINT_NAMES:
+            assert axes[jn] == [0.0, 0.0, 1.0]
+
+    def test_default_axis_is_x(self):
+        xml = (
+            '<robot name="r">'
+            '<link name="a"/><link name="b"/>'
+            '<joint name="j1" type="revolute"><parent link="a"/><child link="b"/>'
+            '<limit lower="-1" upper="1" effort="1" velocity="1"/></joint>'
+            "</robot>"
+        )
+        assert parse_joint_axes(xml, ["j1"])["j1"] == [1.0, 0.0, 0.0]
+
+    def test_custom_axis(self):
+        xml = (
+            '<robot name="r">'
+            '<link name="a"/><link name="b"/>'
+            '<joint name="j1" type="revolute"><parent link="a"/><child link="b"/>'
+            '<axis xyz="0 1 0"/>'
+            '<limit lower="-1" upper="1" effort="1" velocity="1"/></joint>'
+            "</robot>"
+        )
+        assert parse_joint_axes(xml, ["j1"])["j1"] == [0.0, 1.0, 0.0]

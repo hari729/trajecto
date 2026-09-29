@@ -118,6 +118,49 @@ class TestTrajectoryProblem:
         np.testing.assert_allclose(f[:, 0], [9.9, 9.5])
         np.testing.assert_allclose(g[:, 0], [-0.1, -0.5])
 
+    def test_joint_limits_derive_velocity_and_torque_from_urdf(
+        self, trajectory_extras
+    ):
+        # only acceleration and jerk supplied; velocity/torque come from the URDF
+        problem = TrajectoryProblem(
+            trajectory_function=bspline_trajectory,
+            urdf_arg={"source": str(URDF_PATH)},
+            n_var=3,
+            bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
+            trajectory_extras=trajectory_extras,
+            joint_limits={"acceleration": np.full(6, 10.0), "jerk": np.full(6, 50.0)},
+            time_limit=10.0,
+        )
+        np.testing.assert_allclose(problem.joint_limits["velocity"], [np.pi] * 6)
+        np.testing.assert_allclose(
+            problem.joint_limits["torque"], [150.0, 150.0, 150.0, 28.0, 28.0, 28.0]
+        )
+        np.testing.assert_allclose(problem.joint_limits["acceleration"], [10.0] * 6)
+
+    def test_wrong_sized_joint_limits_rejected(self, trajectory_extras):
+        with pytest.raises(ValueError, match="shape"):
+            TrajectoryProblem(
+                trajectory_function=bspline_trajectory,
+                urdf_arg={"source": str(URDF_PATH)},
+                n_var=3,
+                bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
+                trajectory_extras=trajectory_extras,
+                joint_limits={"acceleration": np.full(3, 10.0)},
+                time_limit=10.0,
+            )
+
+    def test_missing_accel_jerk_raises(self, trajectory_extras):
+        with pytest.raises(ValueError, match="acceleration"):
+            TrajectoryProblem(
+                trajectory_function=bspline_trajectory,
+                urdf_arg={"source": str(URDF_PATH)},
+                n_var=3,
+                bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
+                trajectory_extras=trajectory_extras,
+                joint_limits=None,
+                time_limit=10.0,
+            )
+
     def test_generate_trajectory_stamps_joint_names_and_torque(self, problem):
         trajectory = problem.generate_trajectory(np.array([3.3, 3.3, 3.3]))
 
