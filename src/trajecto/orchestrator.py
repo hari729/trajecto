@@ -1,4 +1,4 @@
-import numpy as np
+import json
 from pathlib import Path
 import os
 import threading
@@ -76,7 +76,6 @@ class Pipeline:
         self.final_front = merge_pareto_fronts(results)
 
         F = self.final_front.get("F")
-        X = self.final_front.get("X")
 
         print(f"Global Pareto front: {len(F)} solutions")
         print(f"Objectives [Duration, Energy, Jerk]:\n{F}")
@@ -93,12 +92,9 @@ class Pipeline:
         startup_wait=8.0,
     ):
         print("Launching simulation...")
-        import json
         from launch import LaunchService
 
-        with open(
-            self.results_dir / f"{trajectory_name}-trajectory.json"
-        ) as f:  # confirm actual filename
+        with open(self.results_dir / f"{trajectory_name}-trajectory.json") as f:
             traj_data = json.load(f)
         start_q = traj_data["position"][0]
 
@@ -149,7 +145,7 @@ class Pipeline:
                 str(self.simul_results_dir / f"{trajectory_name}-joint-states.json"),
                 str(self.simul_results_dir / f"{trajectory_name}-ft-sensor.json"),
             ],
-            joint_names=self.problem.robotmodel.joint_names,  # fixed from last message's #3
+            joint_names=self.problem.robotmodel.joint_names,
             robot_name=self.robot_name,
         )
 

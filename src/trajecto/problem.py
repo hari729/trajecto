@@ -1,4 +1,3 @@
-# from datetime import time
 import numpy as np
 
 import pinocchio as pin
@@ -10,16 +9,14 @@ from trajecto.urdf import load_urdf_xml, inject_ft_sensors
 
 class RobotModel:
     def __init__(self, source, xacro_args=None):
-        raw_urdf_xml = load_urdf_xml(source, xacro_args=xacro_args)  # step 1: resolve
-        self.model = pin.buildModelFromXML(raw_urdf_xml)  # step 2: build from raw
+        raw_urdf_xml = load_urdf_xml(source, xacro_args=xacro_args)
+        self.model = pin.buildModelFromXML(raw_urdf_xml)
         self.joint_names = [
             self.model.names[i]
             for i in range(1, self.model.njoints)
             if self.model.joints[i].nq == 1 and self.model.joints[i].nv == 1
         ]
-        self.urdf_xml = inject_ft_sensors(
-            raw_urdf_xml, self.joint_names
-        )  # step 4: final, complete
+        self.urdf_xml = inject_ft_sensors(raw_urdf_xml, self.joint_names)
 
 
 class TrajectoryProblem(ElementwiseProblem):
@@ -60,19 +57,24 @@ class TrajectoryProblem(ElementwiseProblem):
             **kwargs,
         )
 
+    def _compute_torques(self, trajectory):
+        pin_data = self.pin_model.createData()
+        return np.array(
+            [
+                pin.rnea(
+                    self.pin_model,
+                    pin_data,
+                    trajectory["position"][i],
+                    trajectory["velocity"][i],
+                    trajectory["acceleration"][i],
+                )
+                for i in range(len(trajectory["time"]))
+            ]
+        )
+
     def _evaluate(self, x, out, *args, **kwargs):
         trajectory = self.trajectory_function(x, **self.trajectory_extras)
-        torques = []
-        pin_data = self.pin_model.createData()
-        for i in range(len(trajectory["time"])):
-            tau = pin.rnea(
-                self.pin_model,
-                pin_data,
-                trajectory["position"][i],
-                trajectory["velocity"][i],
-                trajectory["acceleration"][i],
-            )
-            torques.append(tau)
+        torques = self._compute_torques(trajectory)
 
         duration = trajectory["time"][-1] - trajectory["time"][0]
         max_v = np.max(np.abs(trajectory["velocity"]), axis=0)
@@ -86,13 +88,19 @@ class TrajectoryProblem(ElementwiseProblem):
         j_constr = max_j - self.joint_limits["jerk"]
         torque_constr = max_torque - self.joint_limits["torque"]
 
-        power = (
-            torques * trajectory["velocity"]
-        )  # instantaneous power per joint, shape (T, n_joints)
-        energy_per_joint = np.trapezoid(
-            np.abs(power), trajectory["time"], axis=0
-        )  # ∫|τ·ω| dt per joint
-        E = np.sum(energy_per_joint)  # total energy across all joints
+        # instantaneous power per joint, shape (T, n_joints)
+        power = torques * np.asarray(trajectory["velocity"])
+        # ∫|τ·ω| dt per joint, summed over all joints
+        E = np.sum(np.trapezoid(np.abs(power), trajectory["time"], axis=0))
+
+        if duration <= 0:
+            # degenerate trajectory: report worst-case objectives and let the
+            # time constraint (duration - time_limit) drive infeasibility
+            out["F"] = [duration, np.inf, np.inf]
+            out["G"] = np.concatenate(
+                ([time_constr], v_constr, a_constr, j_constr, torque_constr)
+            )
+            return
 
         int_jer = np.trapezoid(trajectory["jerk"] ** 2, trajectory["time"], axis=0)
         SJ = np.sum(np.sqrt(int_jer / duration))
@@ -105,15 +113,5 @@ class TrajectoryProblem(ElementwiseProblem):
     def generate_trajectory(self, x):
         trajectory = self.trajectory_function(x, **self.trajectory_extras)
         trajectory["joint_names"] = self.joint_names
-        trajectory["torque"] = []
-        pin_data = self.pin_model.createData()
-        for i in range(len(trajectory["time"])):
-            tau = pin.rnea(
-                self.pin_model,
-                pin_data,
-                trajectory["position"][i],
-                trajectory["velocity"][i],
-                trajectory["acceleration"][i],
-            )
-            trajectory["torque"].append(tau)
+        trajectory["torque"] = self._compute_torques(trajectory)
         return trajectory

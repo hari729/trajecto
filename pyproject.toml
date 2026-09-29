@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "trajecto"
 version = "0.1.0"
-description = "Add your description here"
+description = "Multi-objective trajectory optimization for robot manipulators"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
