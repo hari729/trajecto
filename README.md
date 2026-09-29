@@ -1,8 +1,9 @@
 # trajecto
 
 Multi-objective trajectory optimization for robot manipulators, built on
-[Pinocchio](https://github.com/stack-of-tasks/pinocchio) for rigid-body
-dynamics and [pymoo](https://pymoo.org/) for the multi-objective solver.
+[Pinocchio](https://github.com/stack-of-tasks/pinocchio) (the `pin` package on
+PyPI) for rigid-body dynamics and [pymoo](https://pymoo.org/) for the
+multi-objective solver.
 
 The optimization problem minimizes three objectives — trajectory **duration**,
 **energy** (`∫|τ·ω| dt`), and **smoothness** (squared-jerk integral) — subject
@@ -17,6 +18,20 @@ uv sync
 ```
 
 Requires Python >= 3.11.
+
+### Simulation requirements (optional)
+
+Optimization (`Pipeline.optimize()`) only needs the dependencies installed by
+`uv sync`. Running a trajectory in simulation (`Pipeline.run_simulation()`)
+additionally requires a system ROS 2 installation with:
+
+- `rclpy`, `launch`, `launch_ros`, `ament_index_python`
+- `ros_gz_sim` / `ros_gz_bridge` (Gazebo ↔ ROS 2 bridge)
+- `ros2_control` with `controller_manager` and a `joint_trajectory_controller`
+- a robot description package (the example uses `ur_simulation_gz`)
+
+These are not pip-installable and are imported lazily, so the optimization
+pipeline works without them.
 
 ## Usage
 
@@ -37,11 +52,14 @@ pipe = Pipeline(
     time_limit=50,
     n_var=5,
     var_bounds=...,
-    algorithm=MO_BWR(pop_size=100),
+    algorithm=MO_BWR(pop_size=100),  # MO_BWR comes from loares
     results_dir=...,
+    seeds=[1, 2],
+    n_gen=100,
+    n_threads=8,
 )
 pipe.optimize()
-pipe.run_simulation(...)
+pipe.run_simulation(...)  # requires the ROS 2 / Gazebo setup above
 ```
 
 ### The trajectory function contract
@@ -92,8 +110,7 @@ columns follow the waypoint/model order.
 ## Example results
 
 Planned vs. simulated trajectories from the `examples/example.py` UR5 run
-(selected Pareto solutions, data in
-[`examples/ur/torque_sensor/`](examples/ur/torque_sensor/)):
+(selected Pareto solutions):
 
 | `shoulder_pan_joint` | `shoulder_lift_joint` | `elbow_joint` |
 | --- | --- | --- |
