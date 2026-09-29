@@ -1,5 +1,7 @@
 # trajecto
 
+[![CI](https://github.com/USERNAME/trajecto/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/trajecto/actions/workflows/ci.yml)
+
 Multi-objective trajectory optimization for robot manipulators, built on
 [Pinocchio](https://github.com/stack-of-tasks/pinocchio) (the `pin` package on
 PyPI) for rigid-body dynamics and [pymoo](https://pymoo.org/) for the
@@ -175,13 +177,88 @@ waypoints, trajectory extras, and limits in that order.
 To inspect the expected order for a given URDF:
 
 ```python
+from trajecto import TrajectoryProblem, BSplineTrajectory
+
+problem = TrajectoryProblem(
+    trajectory=BSplineTrajectory(waypoints=waypoints),
+    urdf_arg={"source": "path/to/robot.urdf"},
+    joint_limits={"acceleration": [...], "jerk": [...]},
+)
 print(problem.joint_names)
-# e.g. ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
-#       'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+# e.g. ['joint1', 'joint2', 'joint3']
 ```
 
-`tests/test_problem.py` asserts the UR5 joint order and that trajectory
-columns follow the waypoint/model order.
+## Swap your robot in 3 steps
+
+1. **Add a `RobotConfig`** describing the URDF/xacro source and controller YAML:
+
+```python
+robot = RobotConfig(
+    name="my_robot",
+    urdf_source="package://my_robot_description/urdf/robot.urdf.xacro",
+    controllers_yaml="/path/to/controllers.yaml",
+)
+```
+
+2. **Add a `WorldConfig`** if you want to simulate:
+
+```python
+world = WorldConfig(name="my_world", sdf_path="path/to/world.sdf")
+```
+
+3. **Create a `BSplineTrajectory`** (or subclass `Trajectory`) and build a
+   `Pipeline`:
+
+```python
+from trajecto import Pipeline, BSplineTrajectory
+
+traj = BSplineTrajectory(waypoints=my_waypoints, k=6)
+pipe = Pipeline(robot=robot, world=world, trajectory=traj, ...)
+pipe.optimize()
+pipe.run_simulation(trajectory_name="knee")
+```
+
+See [examples/robots/ur5/example.py](examples/robots/ur5/example.py) for a
+full ROS 2/Gazebo simulation and
+[examples/robots/planar_3dof/example.py](examples/robots/planar_3dof/example.py)
+for a self-contained arm that needs no external ROS packages for optimization.
+
+## Architecture
+
+```
+                ┌─────────────────────────────────┐
+                │        RobotConfig / WorldConfig │
+                └───────────────┬─────────────────┘
+                                │
+                                ▼
+┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│   Trajectory     │──▶│ TrajectoryProblem│──▶│     pymoo        │
+│ (user-defined    │   │ (dynamics,       │   │ (NSGA3/NSGA2/    │
+│  _generate)      │   │  objectives,     │   │  custom)         │
+│                  │   │  constraints)    │   │                  │
+└──────────────────┘   └──────────────────┘   └────────┬─────────┘
+                                                       │
+                                                       ▼
+                                              ┌──────────────────┐
+                                              │  Pareto front    │
+                                              │  fastest/efficient│
+                                              │  /smoothest/knee │
+                                              └────────┬─────────┘
+                                                       │
+                              (optional, needs ROS 2) ▼
+                                              ┌──────────────────┐
+                                              │ Pipeline.run_sim │
+                                              │ Gazebo + ros2    │
+                                              │ _control + FT    │
+                                              └────────┬─────────┘
+                                                       │
+                                                       ▼
+                                              ┌──────────────────┐
+                                              │ plots: planned vs │
+                                              │ simulated joint   │
+                                              │ states / torque   │
+                                              └──────────────────┘
+```
 
 ## Example results
 
@@ -200,4 +277,10 @@ UR5 run (selected Pareto solutions):
 
 ```bash
 uv run pytest
+```
+
+Inside the Docker container:
+
+```bash
+docker compose exec ros2 bash -c "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q"
 ```
