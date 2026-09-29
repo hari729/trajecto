@@ -95,12 +95,9 @@ world = WorldConfig(name="torque_sensor", sdf_path="...")
 pipe = Pipeline(
     robot=robot,
     world=world,
-    trajectory_generator=bspline_trajectory,
-    trajectory_extras=trajectory_extras,
-    joint_limits=joint_limits,
+    trajectory=BSplineTrajectory(waypoints=waypoints, k=6, steps=500),
+    joint_limits={"acceleration": np.full(6, 10.0), "jerk": np.full(6, 50.0)},
     time_limit=50,
-    n_var=5,
-    var_bounds=...,
     algorithm=MO_BWR(pop_size=100),  # MO_BWR comes from loares
     results_dir=...,
     seeds=[1, 2],
@@ -111,10 +108,31 @@ pipe.optimize()
 pipe.run_simulation(trajectory_name="knee")  # requires the ROS 2 / Gazebo setup above
 ```
 
-### The trajectory function contract
+### Writing your own trajectory
 
-A trajectory generator is any callable `trajectory_function(x, **trajectory_extras)`
-that returns a dict containing:
+A trajectory model is a subclass of
+[`Trajectory`](src/trajecto/samples.py) (in the spirit of pymoo's `Problem`)
+that implements `_generate(x)`. It carries its own optimization variables
+(`n_var`) and `bounds`, and `__call__` validates the result, so a bad
+implementation fails with a clear message rather than inside a worker.
+
+```python
+from trajecto.samples import Trajectory
+import numpy as np
+
+class MyTrajectory(Trajectory):
+    def __init__(self, waypoints):
+        self.waypoints = np.asarray(waypoints, float)
+        super().__init__(n_var=len(waypoints) - 1,
+                         bounds=np.array([[0.1] * (len(waypoints) - 1),
+                                          [10.0] * (len(waypoints) - 1)]))
+
+    def _generate(self, x):
+        # x are the segment durations; return the trajectory dict
+        ...
+```
+
+The returned dict must contain:
 
 | key            | shape        | meaning                  |
 | -------------- | ------------ | ------------------------ |
@@ -124,8 +142,10 @@ that returns a dict containing:
 | `acceleration` | `(T, n_joints)` | joint accelerations  |
 | `jerk`         | `(T, n_joints)` | joint jerks          |
 
-`TrajectoryProblem.generate_trajectory(x)` returns the same dict with
-`joint_names` and `torque` (from `pin.rnea`) added.
+Subclasses must be defined at module level (they are pickled to the joblib
+worker processes). `BSplineTrajectory` is the shipped reference
+implementation; `TrajectoryProblem.generate_trajectory(x)` returns the same
+dict with `joint_names` and `torque` (from `pin.rnea`) added.
 
 ## Joint ordering contract
 

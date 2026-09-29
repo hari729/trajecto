@@ -3,7 +3,7 @@ from pathlib import Path
 
 from trajecto.config import RobotConfig, WorldConfig
 from trajecto.orchestrator import Pipeline
-from trajecto.samples import bspline_trajectory
+from trajecto.samples import BSplineTrajectory
 
 from loares.algorithms.bxr import MO_BWR
 
@@ -63,22 +63,19 @@ waypoints = np.array(
     ]
 )
 
+# clamped boundary conditions (zero v/a/j at the start, zero v/a at the end)
 bconditions = [
     ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-    ([(1, 0.0), (2, 0.0), (3, 0.0)], [(1, 0.0), (2, 0.0)]),
-]
+] * 6
 
-trajectory_extras = {
-    "waypoints": waypoints,
-    "bconditions": bconditions,
-    "num_joints": 6,
-    "k": 6,
-    "steps": 500,
-}
+trajectory = BSplineTrajectory(
+    waypoints=waypoints,
+    k=6,
+    steps=500,
+    bconditions=bconditions,
+    n_var=5,
+    bounds=np.array([[0.5, 1.0, 1.0, 1, 1], [20.0, 20.0, 20.0, 20.0, 20.0]]),
+)
 
 # velocity and torque limits are read from the URDF; only acceleration and
 # jerk (not defined in URDF) must be supplied.
@@ -90,12 +87,9 @@ joint_limits = {
 pipe = Pipeline(
     robot=robot,
     world=world,
-    trajectory_generator=bspline_trajectory,
+    trajectory=trajectory,
     joint_limits=joint_limits,
     time_limit=50,
-    trajectory_extras=trajectory_extras,
-    n_var=5,
-    var_bounds=np.array([[0.5, 1.0, 1.0, 1, 1], [20.0, 20.0, 20.0, 20.0, 20.0]]),
     algorithm=MO_BWR(pop_size=100),
     results_dir=Path(__file__).parent,
     seeds=[1, 2],

@@ -30,19 +30,25 @@ class RobotModel:
 class TrajectoryProblem(ElementwiseProblem):
     def __init__(
         self,
-        trajectory_function,
+        trajectory,
         urdf_arg,
-        n_var,
-        bounds,
-        trajectory_extras,
         joint_limits=None,
         time_limit=10.0,
         n_threads=4,
         **kwargs,
     ) -> None:
-        self.trajectory_function = trajectory_function
-        self.trajectory_extras = trajectory_extras
+        # `trajectory` is a trajecto.samples.Trajectory carrying n_var/bounds.
+        if not (hasattr(trajectory, "n_var") and hasattr(trajectory, "bounds")):
+            raise TypeError(
+                "trajectory must be a trajecto.samples.Trajectory subclass "
+                "(it carries n_var and bounds); got "
+                f"{type(trajectory).__name__}"
+            )
+        self.trajectory_function = trajectory
+        self.trajectory_extras = {}
         self.urdf_arg = urdf_arg
+        n_var = trajectory.n_var
+        bounds = trajectory.bounds
         self.robotmodel = RobotModel(**urdf_arg)
         self.pin_model = self.robotmodel.model
         self.n_joints = self.pin_model.nv

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from trajecto.problem import TrajectoryProblem
-from trajecto.samples import bspline_trajectory
+from trajecto.samples import BSplineTrajectory, bspline_trajectory
 
 URDF_PATH = Path(__file__).parent / "ur5.urdf"
 
@@ -33,43 +33,46 @@ JOINT_LIMITS = {
     "torque": np.full(6, 100.0),
 }
 
+TRAJECTORY_EXTRAS = {
+    "waypoints": WAYPOINTS,
+    "bconditions": BCONDITIONS,
+    "num_joints": 6,
+    "k": 6,
+    "steps": 500,
+}
+
+BOUNDS = np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]])
+
 
 @pytest.fixture
-def trajectory_extras():
-    return {
-        "waypoints": WAYPOINTS,
-        "bconditions": BCONDITIONS,
-        "num_joints": 6,
-        "k": 6,
-        "steps": 500,
-    }
+def trajectory():
+    return BSplineTrajectory(
+        waypoints=WAYPOINTS, k=6, steps=500, bconditions=BCONDITIONS, bounds=BOUNDS
+    )
 
 
 @pytest.fixture
-def problem(trajectory_extras):
+def problem(trajectory):
     return TrajectoryProblem(
-        trajectory_function=bspline_trajectory,
+        trajectory=trajectory,
         urdf_arg={"source": str(URDF_PATH)},
-        n_var=3,
-        bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
-        trajectory_extras=trajectory_extras,
         joint_limits=JOINT_LIMITS,
         time_limit=10.0,
     )
 
 
 class TestTrajectoryProblem:
-    def test_bspline_returns_valid_time_and_joint_array_shapes(self, trajectory_extras):
-        trajectory = bspline_trajectory(np.array([3.3, 3.3, 3.3]), **trajectory_extras)
+    def test_bspline_returns_valid_time_and_joint_array_shapes(self, trajectory):
+        traj = trajectory(np.array([3.3, 3.3, 3.3]))
 
-        assert trajectory["time"].shape == (500,)
-        assert trajectory["time"][0] == pytest.approx(0.0)
-        assert trajectory["time"][-1] == pytest.approx(9.9)
-        assert np.all(np.diff(trajectory["time"]) > 0.0)
+        assert traj["time"].shape == (500,)
+        assert traj["time"][0] == pytest.approx(0.0)
+        assert traj["time"][-1] == pytest.approx(9.9)
+        assert np.all(np.diff(traj["time"]) > 0.0)
 
         for key in ("position", "velocity", "acceleration", "jerk"):
-            assert trajectory[key].shape == (500, 6)
-            assert np.all(np.isfinite(trajectory[key]))
+            assert traj[key].shape == (500, 6)
+            assert np.all(np.isfinite(traj[key]))
 
     def test_problem_metadata_matches_fixed_objectives_and_constraints(self, problem):
         assert problem.n_obj == 3
@@ -87,13 +90,11 @@ class TestTrajectoryProblem:
         ]
         assert len(problem.joint_names) == problem.n_joints
 
-    def test_trajectory_columns_follow_model_joint_order(
-        self, problem, trajectory_extras
-    ):
-        trajectory = bspline_trajectory(np.array([3.3, 3.3, 3.3]), **trajectory_extras)
+    def test_trajectory_columns_follow_model_joint_order(self, problem, trajectory):
+        traj = trajectory(np.array([3.3, 3.3, 3.3]))
 
-        np.testing.assert_allclose(trajectory["position"][0], WAYPOINTS[0], atol=1e-9)
-        np.testing.assert_allclose(trajectory["position"][-1], WAYPOINTS[-1], atol=1e-9)
+        np.testing.assert_allclose(traj["position"][0], WAYPOINTS[0], atol=1e-9)
+        np.testing.assert_allclose(traj["position"][-1], WAYPOINTS[-1], atol=1e-9)
 
     def test_single_evaluation_returns_expected_shapes_and_duration(self, problem):
         f, g = problem.evaluate(
@@ -118,16 +119,11 @@ class TestTrajectoryProblem:
         np.testing.assert_allclose(f[:, 0], [9.9, 9.5])
         np.testing.assert_allclose(g[:, 0], [-0.1, -0.5])
 
-    def test_joint_limits_derive_velocity_and_torque_from_urdf(
-        self, trajectory_extras
-    ):
+    def test_joint_limits_derive_velocity_and_torque_from_urdf(self, trajectory):
         # only acceleration and jerk supplied; velocity/torque come from the URDF
         problem = TrajectoryProblem(
-            trajectory_function=bspline_trajectory,
+            trajectory=trajectory,
             urdf_arg={"source": str(URDF_PATH)},
-            n_var=3,
-            bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
-            trajectory_extras=trajectory_extras,
             joint_limits={"acceleration": np.full(6, 10.0), "jerk": np.full(6, 50.0)},
             time_limit=10.0,
         )
@@ -137,26 +133,20 @@ class TestTrajectoryProblem:
         )
         np.testing.assert_allclose(problem.joint_limits["acceleration"], [10.0] * 6)
 
-    def test_wrong_sized_joint_limits_rejected(self, trajectory_extras):
+    def test_wrong_sized_joint_limits_rejected(self, trajectory):
         with pytest.raises(ValueError, match="shape"):
             TrajectoryProblem(
-                trajectory_function=bspline_trajectory,
+                trajectory=trajectory,
                 urdf_arg={"source": str(URDF_PATH)},
-                n_var=3,
-                bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
-                trajectory_extras=trajectory_extras,
                 joint_limits={"acceleration": np.full(3, 10.0)},
                 time_limit=10.0,
             )
 
-    def test_missing_accel_jerk_raises(self, trajectory_extras):
+    def test_missing_accel_jerk_raises(self, trajectory):
         with pytest.raises(ValueError, match="acceleration"):
             TrajectoryProblem(
-                trajectory_function=bspline_trajectory,
+                trajectory=trajectory,
                 urdf_arg={"source": str(URDF_PATH)},
-                n_var=3,
-                bounds=np.array([[0.5, 1.0, 1.0], [10.0, 10.0, 10.0]]),
-                trajectory_extras=trajectory_extras,
                 joint_limits=None,
                 time_limit=10.0,
             )

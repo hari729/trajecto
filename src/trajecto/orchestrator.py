@@ -18,8 +18,8 @@ class Pipeline:
 
     robot:   RobotConfig describing the robot (URDF, controllers, limits).
     world:   optional WorldConfig — required only for run_simulation().
-    trajectory_generator / trajectory_extras / n_var / var_bounds: the
-        trajectory model and its optimization variables (unchanged contract).
+    trajectory: a trajecto.samples.Trajectory instance (e.g. BSplineTrajectory)
+        carrying its own optimization variables and bounds.
     joint_limits: optional overrides merged over the limits derived from the
         robot URDF (velocity/torque). If None, robot.joint_limits is used.
         Acceleration and jerk have no URDF equivalent and must be supplied via
@@ -29,10 +29,7 @@ class Pipeline:
     def __init__(
         self,
         robot,
-        trajectory_generator,
-        n_var,
-        var_bounds,
-        trajectory_extras,
+        trajectory,
         algorithm,
         results_dir,
         time_limit,
@@ -58,10 +55,7 @@ class Pipeline:
         if joint_limits is None:
             joint_limits = robot.joint_limits
         self.joint_limits = joint_limits
-        self.trajectory_generator = trajectory_generator
-        self.var_bounds = var_bounds
-        self.n_var = n_var
-        self.trajectory_extras = trajectory_extras
+        self.trajectory = trajectory
         self.algorithm = algorithm
         self.seeds = seeds
         self.n_gen = n_gen
@@ -69,10 +63,7 @@ class Pipeline:
 
         problem = TrajectoryProblem(
             urdf_arg={"source": robot.urdf_source, "xacro_args": robot.xacro_args},
-            trajectory_function=trajectory_generator,
-            n_var=n_var,
-            bounds=var_bounds,
-            trajectory_extras=trajectory_extras,
+            trajectory=trajectory,
             joint_limits=joint_limits,
             time_limit=time_limit,
             n_threads=n_threads,

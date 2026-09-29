@@ -12,7 +12,7 @@ from trajecto.optimizer import (
     save_trajectory_results,
 )
 from trajecto.problem import TrajectoryProblem
-from trajecto.samples import bspline_trajectory
+from trajecto.samples import BSplineTrajectory, bspline_trajectory
 
 URDF_PATH = Path(__file__).parent / "ur5.urdf"
 
@@ -54,12 +54,12 @@ BOUNDS = np.array([[2.0, 2.0, 2.0], [5.0, 5.0, 5.0]])
 
 @pytest.fixture
 def problem():
+    trajectory = BSplineTrajectory(
+        waypoints=WAYPOINTS, k=6, steps=500, bconditions=BCONDITIONS, bounds=BOUNDS
+    )
     return TrajectoryProblem(
-        trajectory_function=bspline_trajectory,
+        trajectory=trajectory,
         urdf_arg={"source": str(URDF_PATH)},
-        n_var=3,
-        bounds=BOUNDS,
-        trajectory_extras=TRAJECTORY_EXTRAS,
         joint_limits=JOINT_LIMITS,
         time_limit=10.0,
         n_threads=1,
