@@ -4,6 +4,7 @@ import os
 import threading
 import time
 
+from trajecto.config import RobotConfig, WorldConfig
 from trajecto.optimizer import merge_pareto_fronts, save_trajectory_results
 from trajecto.problem import TrajectoryProblem
 from trajecto.launch_sim import build_robot_launch
@@ -13,28 +14,45 @@ from pymoo.optimize import minimize
 
 
 class Pipeline:
+    """Optimize a trajectory for a robot, then simulate it in Gazebo.
+
+    robot:   RobotConfig describing the robot (URDF, controllers, limits).
+    world:   optional WorldConfig — required only for run_simulation().
+    trajectory_generator / trajectory_extras / n_var / var_bounds: the
+        trajectory model and its optimization variables (unchanged contract).
+    joint_limits: optional overrides merged over the limits derived from the
+        robot URDF (Phase 6); pass explicit per-joint arrays until then.
+    """
+
     def __init__(
         self,
-        robot_name,
-        urdf_arg,
-        waypoints,
-        joint_limits,
+        robot,
         trajectory_generator,
-        time_limit,
         n_var,
         var_bounds,
         trajectory_extras,
         algorithm,
         results_dir,
+        joint_limits,
+        time_limit,
+        world=None,
         seeds=(1,),
         n_gen=100,
         n_threads=8,
     ):
-        self.robot_name = robot_name
-        self.results_dir = Path(results_dir / self.robot_name)
+        if not isinstance(robot, RobotConfig):
+            raise TypeError(
+                f"Pipeline robot must be a RobotConfig, got {type(robot).__name__}"
+            )
+        if world is not None and not isinstance(world, WorldConfig):
+            raise TypeError(
+                f"Pipeline world must be a WorldConfig, got {type(world).__name__}"
+            )
+        self.robot = robot
+        self.world = world
+        self.robot_name = robot.name
+        self.results_dir = Path(results_dir) / self.robot_name
         os.makedirs(self.results_dir, exist_ok=True)
-        self.urdf_arg = urdf_arg
-        self.waypoints = waypoints
         self.joint_limits = joint_limits
         self.trajectory_generator = trajectory_generator
         self.var_bounds = var_bounds
@@ -45,9 +63,8 @@ class Pipeline:
         self.n_gen = n_gen
         self.time_limit = time_limit
 
-        # define the problem by passing the starmap interface of the thread pool
         problem = TrajectoryProblem(
-            urdf_arg=urdf_arg,
+            urdf_arg={"source": robot.urdf_source, "xacro_args": robot.xacro_args},
             trajectory_function=trajectory_generator,
             n_var=n_var,
             bounds=var_bounds,
@@ -85,18 +102,23 @@ class Pipeline:
 
     def run_simulation(
         self,
-        controllers_yaml_path,
-        world_file,
-        world_name,
         trajectory_name,
+        world=None,
         startup_wait=8.0,
         headless=False,
     ):
         """Run a saved trajectory in Gazebo and record joint states + FT data.
 
+        world: WorldConfig; defaults to the one given at construction.
         headless: run the Gazebo server without the GUI — use on machines or
             containers without a display. Recording and plots are unaffected.
         """
+        world = world or self.world
+        if world is None:
+            raise ValueError(
+                "run_simulation needs a WorldConfig — pass it to Pipeline(world=...)"
+                " or to run_simulation(world=...)"
+            )
         print("Launching simulation...")
         from launch import LaunchService
 
@@ -110,21 +132,20 @@ class Pipeline:
             start_q,
         )
 
-        controller_name = "joint_trajectory_controller"
         ld = build_robot_launch(
             robot_model=self.problem.robotmodel,
             urdf_xml=launch_urdf_xml,
-            controllers_yaml_path=controllers_yaml_path,
-            controller_name=controller_name,
+            controllers_yaml_path=self.robot.controllers_yaml,
+            controller_name=self.robot.controller_name,
             robot_name=self.robot_name,
-            world_name=world_name,
-            world_file=world_file,
+            world_name=world.name,
+            world_file=world.sdf_path,
             headless=headless,
         )
         self.launch_service = LaunchService()
         self.launch_service.include_launch_description(ld)
 
-        self.simul_results_dir = Path(self.results_dir / f"{world_name}")
+        self.simul_results_dir = Path(self.results_dir / f"{world.name}")
         os.makedirs(self.simul_results_dir, exist_ok=True)
 
         def _run_trajectory_and_shutdown():

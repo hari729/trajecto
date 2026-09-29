@@ -77,16 +77,24 @@ personal `dev` stage on top of the base image (editors, LSPs, shell tools).
 ## Usage
 
 See [examples/example.py](examples/example.py) for the end-to-end pipeline on
-a UR5: define joint-space waypoints, pick a trajectory generator from
+a UR5: define a [`RobotConfig`](src/trajecto/config.py) and a `WorldConfig`,
+define joint-space waypoints, pick a trajectory generator from
 [`trajecto.samples`](src/trajecto/samples.py) (`bspline_trajectory`),
 configure it via `trajectory_extras`, set `joint_limits`, then build a
 `Pipeline` to optimize and run the trajectory in a Gazebo simulation:
 
 ```python
+robot = RobotConfig(
+    name="ur",
+    urdf_source="package://ur_simulation_gz/urdf/ur_gz.urdf.xacro",
+    xacro_args={"ur_type": "ur5", "name": "ur", "simulation_controllers": ...},
+    controllers_yaml="...",
+)
+world = WorldConfig(name="torque_sensor", sdf_path="...")
+
 pipe = Pipeline(
-    robot_name="ur",
-    urdf_arg=URDF_PATH,
-    waypoints=waypoints,
+    robot=robot,
+    world=world,
     trajectory_generator=bspline_trajectory,
     trajectory_extras=trajectory_extras,
     joint_limits=joint_limits,
@@ -100,7 +108,7 @@ pipe = Pipeline(
     n_threads=8,
 )
 pipe.optimize()
-pipe.run_simulation(...)  # requires the ROS 2 / Gazebo setup above
+pipe.run_simulation(trajectory_name="knee")  # requires the ROS 2 / Gazebo setup above
 ```
 
 ### The trajectory function contract

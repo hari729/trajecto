@@ -1,6 +1,7 @@
 import numpy as np
 from pathlib import Path
 
+from trajecto.config import RobotConfig, WorldConfig
 from trajecto.orchestrator import Pipeline
 from trajecto.samples import bspline_trajectory
 
@@ -14,14 +15,21 @@ controllers_yaml_path = str(
     / "ur_controllers.yaml"
 )
 
-URDF_PATH = {
-    "source": "package://ur_simulation_gz/urdf/ur_gz.urdf.xacro",
-    "xacro_args": {
+robot = RobotConfig(
+    name="ur",
+    urdf_source="package://ur_simulation_gz/urdf/ur_gz.urdf.xacro",
+    xacro_args={
         "ur_type": "ur5",
         "name": "ur",
         "simulation_controllers": controllers_yaml_path,
     },
-}
+    controllers_yaml=controllers_yaml_path,
+)
+
+world = WorldConfig(
+    name="torque_sensor",
+    sdf_path=str(Path(__file__).parent / "torque_sensor.sdf"),
+)
 
 waypoints = np.array(
     [
@@ -80,9 +88,8 @@ joint_limits = {
 }
 
 pipe = Pipeline(
-    robot_name="ur",
-    urdf_arg=URDF_PATH,
-    waypoints=waypoints,
+    robot=robot,
+    world=world,
     trajectory_generator=bspline_trajectory,
     joint_limits=joint_limits,
     time_limit=50,
@@ -100,12 +107,7 @@ pipe.optimize()
 
 trajectory_name = "knee"
 
-pipe.run_simulation(
-    controllers_yaml_path=controllers_yaml_path,
-    world_name="torque_sensor",
-    world_file=str(Path(__file__).parent / "torque_sensor.sdf"),
-    trajectory_name=trajectory_name,
-)
+pipe.run_simulation(trajectory_name=trajectory_name)
 
 from trajecto.plots import plot_trajectory_comparison
 
