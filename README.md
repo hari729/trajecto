@@ -33,6 +33,47 @@ additionally requires a system ROS 2 installation with:
 These are not pip-installable and are imported lazily, so the optimization
 pipeline works without them.
 
+## Running in Docker
+
+The repo ships a container image with everything `Pipeline.run_simulation()`
+needs (ROS 2 Jazzy, Gazebo, ros2_control, `ur_simulation_gz`) plus the Python
+dependencies installed from `uv.lock` — no ROS or Python setup on the host.
+
+```bash
+# build the base image (several GB on first build)
+docker compose build
+
+# start it
+docker compose up -d
+
+# run an example (ROS is sourced automatically in non-interactive shells)
+docker compose exec ros2 bash -c "python3 examples/example.py"
+
+# run the test suite inside the container (plugin autoload must be disabled:
+# ROS's launch_testing pytest plugin targets an older pytest API)
+docker compose exec ros2 bash -c "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q"
+```
+
+The repository is bind-mounted at `/home/ros/ws` and `src/` is on
+`PYTHONPATH`, so edits on the host take effect inside the container
+immediately — no reinstall step.
+
+Notes:
+
+- **GPU**: the compose file reserves an NVIDIA GPU, so the host needs the
+  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+  On a machine without it, delete the `deploy:` block (and the
+  `NVIDIA_*`/`__GLX*`/`__NV_*` variables) from `docker-compose.yml`.
+- **GUI**: for the Gazebo GUI, run `xhost +local:` on the host first and keep
+  `DISPLAY` set. Without a display, use headless mode:
+  `pipe.run_simulation(..., headless=True)` runs the Gazebo server only;
+  data recording and plots are unaffected.
+- **Networking**: `network_mode: host` and `ipc: host` require Docker on
+  Linux (they don't work on Docker Desktop for macOS/Windows).
+
+The uncommitted `docker-compose.override.yml` (gitignored) builds the
+personal `dev` stage on top of the base image (editors, LSPs, shell tools).
+
 ## Usage
 
 See [examples/example.py](examples/example.py) for the end-to-end pipeline on

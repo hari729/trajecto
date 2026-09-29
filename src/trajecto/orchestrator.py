@@ -90,7 +90,13 @@ class Pipeline:
         world_name,
         trajectory_name,
         startup_wait=8.0,
+        headless=False,
     ):
+        """Run a saved trajectory in Gazebo and record joint states + FT data.
+
+        headless: run the Gazebo server without the GUI — use on machines or
+            containers without a display. Recording and plots are unaffected.
+        """
         print("Launching simulation...")
         from launch import LaunchService
 
@@ -113,6 +119,7 @@ class Pipeline:
             robot_name=self.robot_name,
             world_name=world_name,
             world_file=world_file,
+            headless=headless,
         )
         self.launch_service = LaunchService()
         self.launch_service.include_launch_description(ld)

@@ -41,6 +41,7 @@ def build_robot_launch(
     robot_name: str = "robot",
     world_name: str = "empty",
     world_file: str = "empty.sdf",
+    headless: bool = False,
 ) -> "LaunchDescription":
     """
     robot_model: RobotModel whose joint_names are used for the FT-sensor
@@ -53,6 +54,8 @@ def build_robot_launch(
     controller_name: the controller to spawn from that YAML, e.g.
         'joint_trajectory_controller' — varies per controller type/user
         choice, so it's a parameter, not a constant.
+    headless: run the Gazebo server without the GUI (`gz sim -s`), for
+        machines/containers without a display. Data recording is unaffected.
     """
     from launch import LaunchDescription
     from launch.actions import IncludeLaunchDescription
@@ -95,6 +98,7 @@ def build_robot_launch(
         parameters=[ParameterFile(controllers_yaml_path, allow_substs=True)],
     )
 
+    gz_args = f"-r -v 4 {'-s ' if headless else ''}{world_file}"
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             str(
@@ -103,7 +107,7 @@ def build_robot_launch(
                 / "gz_sim.launch.py"
             )
         ),
-        launch_arguments={"gz_args": f"-r -v 4 {world_file}"}.items(),
+        launch_arguments={"gz_args": gz_args}.items(),
     )
 
     bridge_config_path = write_bridge_config(
