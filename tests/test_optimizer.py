@@ -172,3 +172,55 @@ class TestOptimizationSmoke:
         durations = F[:, 0]
         assert np.all(durations >= BOUNDS[0].sum() - 1e-6)
         assert np.all(durations <= BOUNDS[1].sum() + 1e-6)
+
+
+PLANAR_URDF = (
+    Path(__file__).parents[1]
+    / "examples"
+    / "robots"
+    / "planar_3dof"
+    / "planar_3dof.urdf"
+)
+
+
+class TestPlanar3DofNotUrOnly:
+    """Optimization runs end-to-end on a non-UR robot (3 joints)."""
+
+    def test_planar_arm_optimize(self):
+        waypoints = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.8, 0.6, -0.4],
+                [1.6, -0.5, 0.8],
+                [1.0, 1.2, 0.4],
+            ]
+        )
+        trajectory = BSplineTrajectory(waypoints=waypoints, k=3, steps=200)
+        problem = TrajectoryProblem(
+            trajectory=trajectory,
+            urdf_arg={"source": str(PLANAR_URDF)},
+            joint_limits={
+                "acceleration": np.full(3, 10.0),
+                "jerk": np.full(3, 50.0),
+            },
+            time_limit=30.0,
+            n_threads=1,
+        )
+        assert problem.n_joints == 3
+        assert problem.joint_names == ["joint1", "joint2", "joint3"]
+        # velocity/torque derived from the planar URDF
+        np.testing.assert_allclose(problem.joint_limits["velocity"], [3.0, 3.0, 3.0])
+        np.testing.assert_allclose(problem.joint_limits["torque"], [50.0, 50.0, 20.0])
+
+        res = minimize(
+            problem,
+            NSGA2(pop_size=4),
+            termination=("n_gen", 2),
+            seed=1,
+            verbose=False,
+        )
+        assert res.opt is not None
+        F = res.opt.get("F")
+        G = res.opt.get("G")
+        assert F.shape[1] == 3
+        assert G.shape[1] == 4 * 3 + 1

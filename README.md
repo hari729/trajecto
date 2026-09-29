@@ -47,7 +47,7 @@ docker compose build
 docker compose up -d
 
 # run an example (ROS is sourced automatically in non-interactive shells)
-docker compose exec ros2 bash -c "python3 examples/example.py"
+docker compose exec ros2 bash -c "python3 examples/robots/ur5/example.py"
 
 # run the test suite inside the container (plugin autoload must be disabled:
 # ROS's launch_testing pytest plugin targets an older pytest API)
@@ -76,11 +76,14 @@ personal `dev` stage on top of the base image (editors, LSPs, shell tools).
 
 ## Usage
 
-See [examples/example.py](examples/example.py) for the end-to-end pipeline on
-a UR5: define a [`RobotConfig`](src/trajecto/config.py) and a `WorldConfig`,
-define joint-space waypoints, pick a trajectory generator from
-[`trajecto.samples`](src/trajecto/samples.py) (`bspline_trajectory`),
-configure it via `trajectory_extras`, set `joint_limits`, then build a
+See [examples/robots/ur5/example.py](examples/robots/ur5/example.py) for the
+end-to-end pipeline on a UR5, and
+[examples/robots/planar_3dof/example.py](examples/robots/planar_3dof/example.py)
+for a self-contained 3-DOF arm (no external ROS packages). Define a
+[`RobotConfig`](src/trajecto/config.py) and a `WorldConfig`,
+define joint-space waypoints, pick a trajectory model from
+[`trajecto.samples`](src/trajecto/samples.py) (`BSplineTrajectory`),
+set the `joint_limits` that the URDF doesn't define, then build a
 `Pipeline` to optimize and run the trajectory in a Gazebo simulation:
 
 ```python
@@ -182,16 +185,16 @@ columns follow the waypoint/model order.
 
 ## Example results
 
-Planned vs. simulated trajectories from the `examples/example.py` UR5 run
-(selected Pareto solutions):
+Planned vs. simulated trajectories from the `examples/robots/ur5/example.py`
+UR5 run (selected Pareto solutions):
 
 | `shoulder_pan_joint` | `shoulder_lift_joint` | `elbow_joint` |
 | --- | --- | --- |
-| ![](examples/shoulder_pan_joint.png) | ![](examples/shoulder_lift_joint.png) | ![](examples/elbow_joint.png) |
+| ![](examples/robots/ur5/shoulder_pan_joint.png) | ![](examples/robots/ur5/shoulder_lift_joint.png) | ![](examples/robots/ur5/elbow_joint.png) |
 
 | `wrist_1_joint` | `wrist_2_joint` | `wrist_3_joint` |
 | --- | --- | --- |
-| ![](examples/wrist_1_joint.png) | ![](examples/wrist_2_joint.png) | ![](examples/wrist_3_joint.png) |
+| ![](examples/robots/ur5/wrist_1_joint.png) | ![](examples/robots/ur5/wrist_2_joint.png) | ![](examples/robots/ur5/wrist_3_joint.png) |
 
 ## Tests
 

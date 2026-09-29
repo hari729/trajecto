@@ -16,8 +16,10 @@ docker-compose.override.yml
 pyrightconfig.json
 
 # generated optimization/simulation results (plots stay committed)
-examples/ur/
+examples/robots/*/ur/
+examples/robots/*/planar_3dof/
 examples/robots/*/results/
+examples/ur/
 examples/results/
 
 # tooling not needed in the image

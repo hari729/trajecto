@@ -28,7 +28,7 @@ robot = RobotConfig(
 
 world = WorldConfig(
     name="torque_sensor",
-    sdf_path=str(Path(__file__).parent / "torque_sensor.sdf"),
+    sdf_path=str(Path(__file__).parents[2] / "worlds" / "torque_sensor.sdf"),
 )
 
 waypoints = np.array(

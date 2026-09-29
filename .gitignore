@@ -17,4 +17,7 @@ pyrightconfig.json
 docker-compose.override.yml
 colcon_defaults.yaml
 
-examples/ur/
+# generated optimization/simulation results (per-robot results dirs)
+examples/robots/*/ur/
+examples/robots/*/planar_3dof/
+examples/robots/*/results/
