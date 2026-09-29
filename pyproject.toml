@@ -24,3 +24,20 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.basedpyright]
+include = ["src"]
+exclude = [
+    "**/build",
+    "**/install",
+    "**/log",
+    "**/__pycache__",
+]
+# ROS 2 Python packages are apt-installed under /opt/ros (inside the
+# container); locally they come from your own ROS installation.
+extraPaths = ["/opt/ros/jazzy/lib/python3.12/site-packages"]
+typeCheckingMode = "basic"
+reportPrivateImportUsage = false
+reportUnusedCallResult = false
+pythonVersion = "3.12"
+pythonPlatform = "Linux"

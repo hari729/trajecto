@@ -13,4 +13,8 @@ pyrightconfig.json
 .pytest_cache/
 .opencode/
 
+# personal dev-container overrides (edit locally, never commit)
+docker-compose.override.yml
+colcon_defaults.yaml
+
 examples/ur/

@@ -1,0 +1,24 @@
+# Keep the build context small: local envs, caches and generated results
+# are never uploaded to the Docker daemon.
+.git
+.venv
+.venv*/
+**/__pycache__
+*.py[oc]
+.pytest_cache
+*.egg-info
+dist
+build
+.opencode
+
+# local gitignored compose/personal files
+docker-compose.override.yml
+pyrightconfig.json
+
+# generated optimization/simulation results (plots stay committed)
+examples/ur/
+examples/robots/*/results/
+examples/results/
+
+# tooling not needed in the image
+.github
