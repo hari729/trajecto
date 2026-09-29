@@ -1,6 +1,6 @@
 # trajecto
 
-[![CI](https://github.com/USERNAME/trajecto/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/trajecto/actions/workflows/ci.yml)
+[![CI](https://github.com/hari729/trajecto/actions/workflows/ci.yml/badge.svg)](https://github.com/hari729/trajecto/actions/workflows/ci.yml)
 
 Multi-objective trajectory optimization for robot manipulators, built on
 [Pinocchio](https://github.com/stack-of-tasks/pinocchio) (the `pin` package on
