@@ -13,6 +13,7 @@ dependencies = [
     "loares>=1.0.3",
     "pin>=4.1.0",
     "pymoo>=0.6.2",
+    "pyyaml>=6.0.3",
     "scipy>=1.17.1",
 ]
 

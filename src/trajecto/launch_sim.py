@@ -1,10 +1,4 @@
 from pathlib import Path
-from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterFile
-from ament_index_python.packages import get_package_share_directory
 
 import yaml
 import tempfile
@@ -43,20 +37,32 @@ def build_robot_launch(
     robot_model,
     controllers_yaml_path: str,
     controller_name: str,
+    urdf_xml: str | None = None,
     robot_name: str = "robot",
     world_name: str = "empty",
     world_file: str = "empty.sdf",
-) -> LaunchDescription:
+) -> "LaunchDescription":
     """
+    robot_model: RobotModel whose joint_names are used for the FT-sensor
+        bridge config.
     urdf_xml: fully-resolved URDF/SDF-ready XML string (already through
-        load_urdf_xml + any injection steps like FT sensors).
+        load_urdf_xml + any injection steps like FT sensors). Defaults to
+        robot_model.urdf_xml.
     controllers_yaml_path: path to a controller_manager YAML — user-supplied
         or generated from the same joint-name list used to build urdf_xml.
     controller_name: the controller to spawn from that YAML, e.g.
         'joint_trajectory_controller' — varies per controller type/user
         choice, so it's a parameter, not a constant.
     """
-    urdf_xml = robot_model.urdf_xml
+    from launch import LaunchDescription
+    from launch.actions import IncludeLaunchDescription
+    from launch.launch_description_sources import PythonLaunchDescriptionSource
+    from launch_ros.actions import Node
+    from launch_ros.parameter_descriptions import ParameterFile
+    from ament_index_python.packages import get_package_share_directory
+
+    if urdf_xml is None:
+        urdf_xml = robot_model.urdf_xml
 
     robot_state_publisher_node = Node(
         package="robot_state_publisher",

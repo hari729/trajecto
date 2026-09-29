@@ -12,9 +12,6 @@ from trajecto.urdf import set_initial_joint_positions
 from pymoo.optimize import minimize
 
 
-from launch import LaunchService
-
-
 class Pipeline:
     def __init__(
         self,
@@ -29,7 +26,7 @@ class Pipeline:
         trajectory_extras,
         algorithm,
         results_dir,
-        seeds=[1],
+        seeds=(1,),
         n_gen=100,
         n_threads=8,
     ):
@@ -97,6 +94,7 @@ class Pipeline:
     ):
         print("Launching simulation...")
         import json
+        from launch import LaunchService
 
         with open(
             self.results_dir / f"{trajectory_name}-trajectory.json"
@@ -109,11 +107,11 @@ class Pipeline:
             self.problem.robotmodel.joint_names,
             start_q,
         )
-        self.problem.robotmodel.urdf_xml = launch_urdf_xml
 
         controller_name = "joint_trajectory_controller"
         ld = build_robot_launch(
             robot_model=self.problem.robotmodel,
+            urdf_xml=launch_urdf_xml,
             controllers_yaml_path=controllers_yaml_path,
             controller_name=controller_name,
             robot_name=self.robot_name,
