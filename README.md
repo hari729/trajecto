@@ -226,26 +226,26 @@ for a self-contained arm that needs no external ROS packages for optimization.
 ## Architecture
 
 ```
-                ┌─────────────────────────────────┐
-                │        RobotConfig / WorldConfig │
-                └───────────────┬─────────────────┘
+                ┌──────────────────────────────────┐
+                │     RobotConfig / WorldConfig    │
+                └───────────────┬──────────────────┘
                                 │
                                 ▼
-┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
-│   Trajectory     │──▶│ TrajectoryProblem│──▶│     pymoo        │
-│ (user-defined    │   │ (dynamics,       │   │ (NSGA3/NSGA2/    │
-│  _generate)      │   │  objectives,     │   │  custom)         │
-│                  │   │  constraints)    │   │                  │
-└──────────────────┘   └──────────────────┘   └────────┬─────────┘
-                                                       │
-                                                       ▼
-                                              ┌──────────────────┐
-                                              │  Pareto front    │
+┌──────────────────┐    ┌──────────────────┐    ┌───────────────────┐
+│   Trajectory     │──▶│ TrajectoryProblem│──▶│     pymoo/loares  │
+│ (user-defined    │    │ (dynamics,       │    │ (NSGA3/NSGA2/     │
+│  _generate)      │    │  objectives,     │    │  custom)          │
+│                  │    │  constraints)    │    │                   │
+└──────────────────┘    └──────────────────┘    └────────┬──────────┘
+                                                         │
+                                                         ▼
+                                              ┌───────────────────┐
+                                              │  Pareto front     │
                                               │  fastest/efficient│
-                                              │  /smoothest/knee │
-                                              └────────┬─────────┘
+                                              │  /smoothest/knee  │
+                                              └────────┬──────────┘
                                                        │
-                              (optional, needs ROS 2) ▼
+                               (optional, needs ROS 2) ▼
                                               ┌──────────────────┐
                                               │ Pipeline.run_sim │
                                               │ Gazebo + ros2    │
@@ -253,11 +253,11 @@ for a self-contained arm that needs no external ROS packages for optimization.
                                               └────────┬─────────┘
                                                        │
                                                        ▼
-                                              ┌──────────────────┐
+                                              ┌───────────────────┐
                                               │ plots: planned vs │
                                               │ simulated joint   │
                                               │ states / torque   │
-                                              └──────────────────┘
+                                              └───────────────────┘
 ```
 
 ## Example results
