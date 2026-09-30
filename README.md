@@ -103,7 +103,7 @@ pipe = Pipeline(
     trajectory=BSplineTrajectory(waypoints=waypoints, k=6, steps=500),
     joint_limits={"acceleration": np.full(6, 10.0), "jerk": np.full(6, 50.0)},
     time_limit=50,
-    algorithm=MO_BWR(pop_size=100),  # MO_BWR comes from loares
+    algorithm=MO_BWR_CD(pop_size=100),  # MO_BWR_CD comes from loares
     results_dir=...,
     seeds=[1, 2],
     n_gen=100,
