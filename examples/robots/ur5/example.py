@@ -5,7 +5,7 @@ from trajecto.config import RobotConfig, WorldConfig
 from trajecto.orchestrator import Pipeline
 from trajecto.samples import BSplineTrajectory
 
-from loares.algorithms.bxr import MO_BWR
+from loares.algorithms.moo.mobxr_cd import MO_BWR_CD
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -90,7 +90,7 @@ pipe = Pipeline(
     trajectory=trajectory,
     joint_limits=joint_limits,
     time_limit=50,
-    algorithm=MO_BWR(pop_size=100),
+    algorithm=MO_BWR_CD(pop_size=100),
     results_dir=Path(__file__).parent,
     seeds=[1, 2],
     n_gen=100,

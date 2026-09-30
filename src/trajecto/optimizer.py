@@ -1,10 +1,17 @@
 import numpy as np
 import json
 
+import pandas as pd
+
 from pymoo.core.population import Population
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
-from loares.experiments.utils import dict_to_csv
+
+def _dict_to_csv(dictionary, filepath, filename):
+    """Write a dict of equally-sized sequences to a CSV file."""
+    pd.DataFrame.from_dict(dictionary).to_csv(
+        f"{filepath}/{filename}.csv", index=False
+    )
 
 
 def merge_pareto_fronts(results):
@@ -39,7 +46,7 @@ def save_trajectory_results(final_front, output_dir, problem):
     X = final_front.get("X")
     G = final_front.get("G")
     results_dict = {"X": X.tolist(), "F": F.tolist(), "G": G.tolist()}
-    dict_to_csv(results_dict, output_dir, "trajectory-optimization-results")
+    _dict_to_csv(results_dict, output_dir, "trajectory-optimization-results")
 
     selections = {
         "fastest": int(np.argmin(F[:, 0])),

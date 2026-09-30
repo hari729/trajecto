@@ -1,4 +1,4 @@
-from loares.experiments.plots import multi_line_plot
+from loares.plots import multi_line_plot
 from matplotlib.backends.backend_pdf import PdfPages
 import os
 
