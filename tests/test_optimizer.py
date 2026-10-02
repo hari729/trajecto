@@ -39,6 +39,13 @@ JOINT_LIMITS = {
     "acceleration": np.full(6, 10.0),
     "jerk": np.full(6, 50.0),
     "torque": np.full(6, 100.0),
+    "position": np.array(
+        [
+            [-6.283185307179586] * 6,
+            [6.283185307179586] * 6,
+        ],
+        dtype=float,
+    ),
 }
 
 TRAJECTORY_EXTRAS = {
@@ -76,7 +83,7 @@ class _Result:
 def _population(F):
     pop = Population.new("F", np.asarray(F, dtype=float))
     pop.set("X", np.zeros((len(pop), 3)))
-    pop.set("G", np.zeros((len(pop), 25)))
+    pop.set("G", np.zeros((len(pop), 37)))
     return pop
 
 
@@ -167,7 +174,7 @@ class TestOptimizationSmoke:
         F = res.opt.get("F")
         G = res.opt.get("G")
         assert F.shape[1] == 3
-        assert G.shape[1] == 4 * problem.n_joints + 1
+        assert G.shape[1] == 6 * problem.n_joints + 1
         # durations stay within the variable bounds
         durations = F[:, 0]
         assert np.all(durations >= BOUNDS[0].sum() - 1e-6)
@@ -223,4 +230,4 @@ class TestPlanar3DofNotUrOnly:
         F = res.opt.get("F")
         G = res.opt.get("G")
         assert F.shape[1] == 3
-        assert G.shape[1] == 4 * 3 + 1
+        assert G.shape[1] == 6 * 3 + 1

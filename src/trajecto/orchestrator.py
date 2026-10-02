@@ -21,9 +21,9 @@ class Pipeline:
     trajectory: a trajecto.samples.Trajectory instance (e.g. BSplineTrajectory)
         carrying its own optimization variables and bounds.
     joint_limits: optional overrides merged over the limits derived from the
-        robot URDF (velocity/torque). If None, robot.joint_limits is used.
-        Acceleration and jerk have no URDF equivalent and must be supplied via
-        one of these.
+        robot URDF (velocity/torque/position). If None, robot.joint_limits is
+        used. Acceleration and jerk have no URDF equivalent and must be supplied
+        via one of these.
     """
 
     def __init__(

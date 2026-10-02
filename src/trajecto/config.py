@@ -22,7 +22,9 @@ class RobotConfig:
     controller_name:  controller to spawn (must exist in controllers_yaml).
     joint_limits:     optional overrides for the limits derived from the URDF;
                       keys are any of "velocity", "acceleration", "jerk",
-                      "torque" with per-joint array values (URDF order).
+                      "torque", or "position" with per-joint array values
+                      (URDF order). "position" is a (2, n_joints) array where
+                      row 0 is the lower bound and row 1 is the upper bound.
     home_pose:        optional joint-space home configuration (URDF order).
     """
 

@@ -7,8 +7,8 @@ from pymoo.parallelization.joblib import JoblibParallelization
 from trajecto.urdf import (
     load_urdf_xml,
     inject_ft_sensors,
-    parse_joint_limits,
     parse_joint_axes,
+    parse_joint_limits,
 )
 
 
@@ -54,8 +54,8 @@ class TrajectoryProblem(ElementwiseProblem):
         self.n_joints = self.pin_model.nv
         self.joint_limits = self._resolve_joint_limits(joint_limits)
         n_ieq_constr = (
-            4 * self.n_joints + 1
-        )  # time, velocity, acceleration, jerk, torque constraints
+            6 * self.n_joints + 1
+        )  # time, velocity, acceleration, jerk, torque, position (2n) constraints
         self.joint_names = self.robotmodel.joint_names
         self.time_limit = time_limit
         self.n_threads = n_threads
@@ -74,9 +74,9 @@ class TrajectoryProblem(ElementwiseProblem):
     def _resolve_joint_limits(self, joint_limits):
         """Merge user overrides over the limits derived from the URDF.
 
-        Velocity and torque default to the URDF <limit> values; acceleration
-        and jerk have no URDF equivalent and must be supplied. Every key must
-        be a per-joint array in URDF joint order.
+        Velocity, torque and position default to the URDF <limit> values;
+        acceleration and jerk have no URDF equivalent and must be supplied.
+        Every key must be in URDF joint order.
         """
         derived = self.robotmodel.derived_limits
         overrides = dict(joint_limits or {})
@@ -97,6 +97,24 @@ class TrajectoryProblem(ElementwiseProblem):
                     f"(one value per movable joint in URDF order), got {value.shape}"
                 )
             resolved[key] = value
+
+        # position is a (2, n_joints) array: [lower, upper]
+        key = "position"
+        if key in overrides:
+            value = np.asarray(overrides[key], dtype=float)
+        elif key in derived:
+            value = np.asarray(derived[key], dtype=float)
+        else:
+            raise ValueError(
+                f"joint_limits is missing {key!r} and it cannot be derived "
+                "from the URDF; supply it (e.g. via RobotConfig.joint_limits)"
+            )
+        if value.shape != (2, self.n_joints):
+            raise ValueError(
+                f"joint_limits[{key!r}] must have shape (2, {self.n_joints}) "
+                f"([lower; upper] per movable joint in URDF order), got {value.shape}"
+            )
+        resolved[key] = value
         return resolved
 
     def _check_joint_count(self, trajectory):
@@ -132,12 +150,16 @@ class TrajectoryProblem(ElementwiseProblem):
         max_a = np.max(np.abs(trajectory["acceleration"]), axis=0)
         max_j = np.max(np.abs(trajectory["jerk"]), axis=0)
         max_torque = np.max(np.abs(torques), axis=0)
+        min_pos = np.min(trajectory["position"], axis=0)
+        max_pos = np.max(trajectory["position"], axis=0)
 
         time_constr = duration - self.time_limit
         v_constr = max_v - self.joint_limits["velocity"]
         a_constr = max_a - self.joint_limits["acceleration"]
         j_constr = max_j - self.joint_limits["jerk"]
         torque_constr = max_torque - self.joint_limits["torque"]
+        pos_lower_constr = self.joint_limits["position"][0] - min_pos
+        pos_upper_constr = max_pos - self.joint_limits["position"][1]
 
         # instantaneous power per joint, shape (T, n_joints)
         power = torques * np.asarray(trajectory["velocity"])
@@ -149,7 +171,15 @@ class TrajectoryProblem(ElementwiseProblem):
             # time constraint (duration - time_limit) drive infeasibility
             out["F"] = [duration, np.inf, np.inf]
             out["G"] = np.concatenate(
-                ([time_constr], v_constr, a_constr, j_constr, torque_constr)
+                (
+                    [time_constr],
+                    v_constr,
+                    a_constr,
+                    j_constr,
+                    torque_constr,
+                    pos_lower_constr,
+                    pos_upper_constr,
+                )
             )
             return
 
@@ -158,7 +188,15 @@ class TrajectoryProblem(ElementwiseProblem):
 
         out["F"] = [duration, E, SJ]
         out["G"] = np.concatenate(
-            ([time_constr], v_constr, a_constr, j_constr, torque_constr)
+            (
+                [time_constr],
+                v_constr,
+                a_constr,
+                j_constr,
+                torque_constr,
+                pos_lower_constr,
+                pos_upper_constr,
+            )
         )
 
     def generate_trajectory(self, x):

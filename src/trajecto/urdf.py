@@ -1,6 +1,8 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+import numpy as np
+
 
 def inject_ft_sensors(
     urdf_xml: str, joint_names: list[str], update_rate: int = 100
@@ -113,20 +115,26 @@ def _movable_joints(root: ET.Element) -> dict[str, ET.Element]:
 
 
 def parse_joint_limits(urdf_xml: str, joint_names: list[str]) -> dict:
-    """Derive per-joint velocity/effort limits from the URDF <limit> elements.
+    """Derive per-joint position/velocity/effort limits from URDF <limit>.
 
-    Returns {"velocity": array, "torque": array} in the given joint_names
-    order. Raises if a requested joint is missing or has a non-positive
-    (unspecified) limit, since a zero limit would make every trajectory
+    Returns {"velocity": array, "torque": array, "position": (2, n) array}
+    in the given joint_names order. The position array has row 0 as the lower
+    limit and row 1 as the upper limit.
+
+    Raises if a requested joint is missing or has a non-positive
+    (unspecified) velocity/effort limit, or a missing/unspecified position
+    bound, since a zero or missing limit would make every trajectory
     infeasible.
     """
     joints = _movable_joints(ET.fromstring(urdf_xml))
-    velocity, torque = [], []
+    velocity, torque, position_lower, position_upper = [], [], [], []
     for jn in joint_names:
         el = joints.get(jn)
         lim = el.find("limit") if el is not None else None
         v = float(lim.get("velocity")) if lim is not None else 0.0
         e = float(lim.get("effort")) if lim is not None else 0.0
+        lower = lim.get("lower") if lim is not None else None
+        upper = lim.get("upper") if lim is not None else None
         if v <= 0:
             raise ValueError(
                 f"joint '{jn}' has no positive <limit velocity=...> in the URDF; "
@@ -137,9 +145,20 @@ def parse_joint_limits(urdf_xml: str, joint_names: list[str]) -> dict:
                 f"joint '{jn}' has no positive <limit effort=...> in the URDF; "
                 "supply a torque limit via RobotConfig.joint_limits"
             )
+        if lower is None or upper is None:
+            raise ValueError(
+                f"joint '{jn}' has no <limit lower=... upper=...> in the URDF; "
+                "supply a position limit via RobotConfig.joint_limits"
+            )
         velocity.append(v)
         torque.append(e)
-    return {"velocity": velocity, "torque": torque}
+        position_lower.append(float(lower))
+        position_upper.append(float(upper))
+    return {
+        "velocity": velocity,
+        "torque": torque,
+        "position": np.array([position_lower, position_upper], dtype=float),
+    }
 
 
 def parse_joint_axes(urdf_xml: str, joint_names: list[str]) -> dict[str, list[float]]:

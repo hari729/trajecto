@@ -91,13 +91,20 @@ class TestSetInitialJointPositions:
 
 
 class TestParseJointLimits:
-    def test_derives_velocity_and_effort(self):
+    def test_derives_velocity_effort_and_position(self):
         xml = load_urdf_xml(str(URDF_PATH))
         limits = parse_joint_limits(xml, JOINT_NAMES)
         np.testing.assert_allclose(limits["velocity"], [np.pi] * 6)
         np.testing.assert_allclose(limits["torque"], [150.0, 150.0, 150.0, 28.0, 28.0, 28.0])
+        np.testing.assert_allclose(
+            limits["position"],
+            [
+                [-6.283185307179586, -6.283185307179586, -3.141592653589793, -6.283185307179586, -6.283185307179586, -6.283185307179586],
+                [6.283185307179586, 6.283185307179586, 3.141592653589793, 6.283185307179586, 6.283185307179586, 6.283185307179586],
+            ],
+        )
 
-    def test_missing_or_zero_limit_raises(self):
+    def test_missing_or_zero_velocity_effort_raises(self):
         xml = (
             '<robot name="r">'
             '<link name="a"/><link name="b"/>'
@@ -106,6 +113,17 @@ class TestParseJointLimits:
             "</robot>"
         )
         with pytest.raises(ValueError, match="velocity"):
+            parse_joint_limits(xml, ["j1"])
+
+    def test_missing_position_bounds_raises(self):
+        xml = (
+            '<robot name="r">'
+            '<link name="a"/><link name="b"/>'
+            '<joint name="j1" type="revolute"><parent link="a"/><child link="b"/>'
+            '<limit effort="1" velocity="1"/></joint>'
+            "</robot>"
+        )
+        with pytest.raises(ValueError, match="position"):
             parse_joint_limits(xml, ["j1"])
 
     def test_unknown_joint_raises(self):

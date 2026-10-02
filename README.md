@@ -8,8 +8,8 @@ PyPI) for rigid-body dynamics and [pymoo](https://pymoo.org/) for the
 multi-objective solver.
 
 The optimization problem minimizes three objectives — trajectory **duration**,
-**energy** (`∫|τ·ω| dt`), and **smoothness** (squared-jerk integral) — subject
-to time, velocity, acceleration, jerk, and torque constraints.
+**energy** (`∫|τ·ω| dt`), and **smoothness** (RMS jerk) — subject
+to time, velocity, acceleration, jerk, torque, and joint-position constraints.
 
 ## Installation
 
@@ -39,7 +39,7 @@ pipeline works without them.
 
 The repo ships a container image with everything `Pipeline.run_simulation()`
 needs (ROS 2 Jazzy, Gazebo, ros2_control, `ur_simulation_gz`) plus the Python
-dependencies installed from `uv.lock` — no ROS or Python setup on the host.
+dependencies installed from `uv.lock` — no ROS or Python setup required on the host.
 
 ```bash
 # build the base image (several GB on first build)
@@ -72,9 +72,6 @@ Notes:
   data recording and plots are unaffected.
 - **Networking**: `network_mode: host` and `ipc: host` require Docker on
   Linux (they don't work on Docker Desktop for macOS/Windows).
-
-The uncommitted `docker-compose.override.yml` (gitignored) builds the
-personal `dev` stage on top of the base image (editors, LSPs, shell tools).
 
 ## Usage
 
@@ -116,7 +113,7 @@ pipe.run_simulation(trajectory_name="knee")  # requires the ROS 2 / Gazebo setup
 ### Writing your own trajectory
 
 A trajectory model is a subclass of
-[`Trajectory`](src/trajecto/samples.py) (in the spirit of pymoo's `Problem`)
+[`Trajectory`](src/trajecto/samples.py)
 that implements `_generate(x)`. It carries its own optimization variables
 (`n_var`) and `bounds`, and `__call__` validates the result, so a bad
 implementation fails with a clear message rather than inside a worker.
@@ -161,11 +158,13 @@ order in which the movable joints are declared in the URDF:
 - the **columns** of the trajectory arrays returned by the trajectory
   function (`position`, `velocity`, `acceleration`, `jerk`),
 - the per-joint entries of `joint_limits` (`velocity`, `acceleration`,
-  `jerk`, `torque`).
+  `jerk`, `torque`, and `position`).
 
-`velocity` and `torque` limits are read automatically from the URDF `<limit>`
-elements; `acceleration` and `jerk` are not defined in URDF and must be
-supplied (via `joint_limits`). Supplying a key overrides the derived value.
+`velocity`, `torque`, and `position` limits are read automatically from the
+URDF `<limit>` elements; `acceleration` and `jerk` are not defined in URDF and
+must be supplied (via `joint_limits`). `position` is a `(2, n_joints)` array
+with row 0 as lower and row 1 as upper bounds. Supplying a key overrides the
+derived value.
 
 Pinocchio's `buildModelFromXML` extracts joints deterministically in URDF
 declaration order, and `trajecto` does **not** reorder anything: column `i` of
